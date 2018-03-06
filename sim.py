@@ -1,4 +1,5 @@
 import random
+import sys
 
 PRODUCTION_PRICES = [10, 20, 30]
 
@@ -10,9 +11,8 @@ class Market(object):
     self.cycles = []
     self.cycles.append(MarketCycle(initial_price_matrix, initial_supply_matrix))
 
-  def next_cycle(new_price_matrix, new_supply_matrix):
-    self.cycles.append(MarkeyCycle(new_price_matrix, new_supply_matrix))
-    self.cycle += 1
+  def new_cycle(self, new_price_matrix, new_supply_matrix):
+    self.cycles.append(MarketCycle(new_price_matrix, new_supply_matrix))
 
   # return a tuple containing amount purchased and remaining funds
   def consume_product(self, productIndex, offer):
@@ -110,14 +110,36 @@ class Person(object):
           prices.append(0)
     else:
       prevCycle = market.cycles[market.cycle-1]
+      lastCycleProfits = prevCycle.settlement[idInMarket]
+      newPrice = 0
       for i in range(len(self.productivities)):
-        if produce[i] > 0:
-          pass
+        if produce[i] == 0:
+          prices.append(0)
+          continue
         elif prevCycle.overdemand[i] > 0:
-          prices.append(prevCycle.price_matrix[idInMarket][i] * 1.1) # if demand outstriped supply, bump price by 10 percent
+          # if demand outstriped supply, bump price by 10 percent
+          newPrice = prevCycle.price_matrix[idInMarket][i] * 1.1
         elif prevCycle.settlement[idInMarket] == 0:
-          prices.append(prevCycle.price_matrix[idInMarket][i] * 0.9) # if no sales were made, reduce price by 10 percent
-            
+          # if no sales were made, reduce price by 10 percent
+          newPrice = prevCycle.price_matrix[idInMarket][i] * 0.9
+        elif prevCycle.find_cheapest(i) != idInMarket:
+          cheapestPrice = prevCycle.find_cheapest(i)
+          lowestPrice = (1 - self.productivities[i]) * PRODUCTION_PRICES[i]
+          difference = cheapestPrice - lowestPrice
+          if difference > (lowestPrice * 0.1):
+            newPrice = cheapestPrice * 0.9
+          else:
+            newPrice = lowestPrice
+        #if profits are down
+        elif market.cycle > 1 and market.cycles[market.cycle-2].settlement[idInMarket] > lastCycleProfits:
+          newPrice = prevCycle.price_matrix[idInMarket][i] * 0.9
+        else:
+          newPrice = prevCycle.price_matrix[idInMarket][i]
+        if newPrice > 0:
+          prices.append(newPrice)
+        else:
+          prices.append(prevCycle.price_matrix[idInMarket][i])
+
     return prices
 
   def consume(self, market):
@@ -138,11 +160,11 @@ class Person(object):
 def generate_person():
   productivities = generate_productivities()
   preferences = generate_preferences()
-  return Person(1000.0, productivities, preferences, 0.0, 0.0, 0.3)
+  return Person(10000.0, productivities, preferences, 0.0, 0.0, 0.3)
 
 def generate_productivities():
   p = [0 for n in range(len(PRODUCTION_PRICES))]
-  products = choices(range(len(p)), random.randint(1, int(len(p)/2))) #a person can be able to produce up to half of the products
+  products = choices(range(len(p)), random.randint(1, int(len(p)-1))) #a person can be able to produce up to half of the products
   for i in products:
     p[i] = round((random.random() * 4) / 10, 1) + 0.1 # generate number between 0.1 and 0.5 rounded to 1dp
   return p
@@ -187,8 +209,13 @@ if __name__ == "__main__":
   #settle stage
   for i in range(len(people)):
     people[i].liquidity += market.cycles[market.cycle].settlement[i]
+  
+  market.cycle += 1
+  ncycles = 50
+  if len(sys.argv) > 1:
+      ncycles = int(sys.argv[1])
 
-  for cycle in range(3):
+  for cycle in range(ncycles):
     priceMatrix = []
     produceMatrix = []
     print("cycle: " + str(cycle))
@@ -198,6 +225,7 @@ if __name__ == "__main__":
      market_offer = people[i].offer_market(produce, market, i)
      priceMatrix.append(market_offer)
 
+    market.new_cycle(priceMatrix, produceMatrix)
     #consume stage
     for p in people:
       p.consume(market)
@@ -205,7 +233,21 @@ if __name__ == "__main__":
     #settle stage
     for i in range(len(people)):
       people[i].liquidity += market.cycles[market.cycle].settlement[i]
-     
 
+    market.cycle += 1
 
+  
+  with open("price_data.txt", "w") as datafile:
+    for i in range(len(market.cycles)):
+      datafile.write("cycle:"+str(i)+"\n")
+      for row in market.cycles[i].price_matrix:
+        if row != 0:
+          datafile.write(", ".join([str(x) for x in row]) + "\n")
+
+  with open("supply_data.txt", "w") as datafile:
+    for i in range(len(market.cycles)):
+      datafile.write("cycle:"+str(i)+"\n")
+      for row in market.cycles[i].supply_matrix:
+        if row != 0:
+          datafile.write(", ".join([str(x) for x in row]) + "\n")
 
