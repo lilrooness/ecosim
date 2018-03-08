@@ -6,12 +6,15 @@ from market import MarketCycle
 
 from person import Person
 
+from bank import Bank
+from bank import CreditAgency
+
 PRODUCTION_PRICES = [10, 20, 30]
 
-def generate_person():
+def generate_person(bank, bankAccountId):
   productivities = generate_productivities()
   preferences = generate_preferences()
-  return Person(10000.0, productivities, preferences, 0.0, 0.0, 0.3)
+  return Person(productivities, preferences, 0.0, round(random.random(), 2), 0.3, bank, bankAccountId)
 
 def generate_productivities():
   p = [0 for n in range(len(PRODUCTION_PRICES))]
@@ -38,28 +41,32 @@ def choose_index(pool, n, acc):
   return choose_index(pool, n-1, acc)
 
 if __name__ == "__main__":
+  banks = [Bank(100000000, 0.1, 0.02)]
   people = []
   for i in range(1000):
-    people.append(generate_person())
+    newPerson = generate_person(0, i)
+    people.append(newPerson)
+    banks[0].open_account(i, 10000)
  
   priceMatrix = []
   produceMatrix = []
   
-  
+  tempMarket = Market([], [], PRODUCTION_PRICES)
   for i in range(len(people)):
-    produce = people[i].produce()
+    produce = people[i].produce(tempMarket, banks)
     produceMatrix.append(produce)
-    market_offer = people[i].offer_market(produce, Market([], []), i)
+    market_offer = people[i].offer_market(produce, tempMarket, i)
     priceMatrix.append(market_offer)
 
-  market = Market(priceMatrix, produceMatrix)
+  market = Market(priceMatrix, produceMatrix, PRODUCTION_PRICES)
   #consume stage
   for p in people:
-    p.consume(market)
+    p.consume(market, banks)
 
   #settle stage
   for i in range(len(people)):
-    people[i].liquidity += market.cycles[market.cycle].settlement[i]
+    #people[i].liquidity += market.cycles[market.cycle].settlement[i]
+    banks[people[i].bank].deposit(i, market.cycles[market.cycle].settlement[i])
   
   market.cycle += 1
   ncycles = 50
@@ -71,7 +78,7 @@ if __name__ == "__main__":
     produceMatrix = []
     print("cycle: " + str(cycle))
     for i in range(len(people)):
-     produce = people[i].produce()
+     produce = people[i].produce(market, banks)
      produceMatrix.append(produce)
      market_offer = people[i].offer_market(produce, market, i)
      priceMatrix.append(market_offer)
@@ -79,11 +86,12 @@ if __name__ == "__main__":
     market.new_cycle(priceMatrix, produceMatrix)
     #consume stage
     for p in people:
-      p.consume(market)
+      p.consume(market, banks)
 
     #settle stage
     for i in range(len(people)):
-      people[i].liquidity += market.cycles[market.cycle].settlement[i]
+      #people[i].liquidity += market.cycles[market.cycle].settlement[i]
+      banks[people[i].bank].deposit(i, market.cycles[market.cycle].settlement[i])
 
     market.cycle += 1
 

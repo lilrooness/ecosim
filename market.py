@@ -1,26 +1,27 @@
-PRODUCTION_PRICES = [10, 20, 30]
 
 class Market(object):
-  def __init__(self, initial_price_matrix, initial_supply_matrix):
+  def __init__(self, initial_price_matrix, initial_supply_matrix, production_base_prices):
+    self.production_base_prices = production_base_prices
     self.price_matrix = initial_price_matrix
     self.supply_matrix = initial_supply_matrix
     self.cycle = 0
     self.cycles = []
-    self.cycles.append(MarketCycle(initial_price_matrix, initial_supply_matrix))
+    self.cycles.append(MarketCycle(initial_price_matrix, initial_supply_matrix, self.production_base_prices))
 
   def new_cycle(self, new_price_matrix, new_supply_matrix):
-    self.cycles.append(MarketCycle(new_price_matrix, new_supply_matrix))
+    self.cycles.append(MarketCycle(new_price_matrix, new_supply_matrix, self.production_base_prices))
 
   # return a tuple containing amount purchased and remaining funds
   def consume_product(self, productIndex, offer):
     return self.cycles[self.cycle].consume_product(productIndex, offer)
 
 class MarketCycle(object):
-  def __init__(self, price_matrix, supply_matrix):
+  def __init__(self, price_matrix, supply_matrix, production_base_prices):
+    self.production_base_prices = production_base_prices
     self.price_matrix = price_matrix
     self.supply_matrix = supply_matrix
-    self.transactions = [0 for x in range(len(PRODUCTION_PRICES))]
-    self.overdemand = [0 for x in range(len(PRODUCTION_PRICES))]
+    self.transactions = [0 for x in range(len(self.production_base_prices))]
+    self.overdemand = [0 for x in range(len(self.production_base_prices))]
     self.settlement = [0 for x in range(len(self.price_matrix))]
 
   def consume_product(self, productIndex, offer):
