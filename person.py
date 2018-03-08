@@ -18,13 +18,7 @@ class Person(object):
     for i in range(len(self.productivities)):
       if self.productivities[i] > 0:
         p = spread / ((1.0 - self.productivities[i]) * market.production_base_prices[i])
-        if math.isnan(p):
-          print("NAN ALERT- spread = " + str(spread))
-          print("budget: " +str(budget))
-          p = 0
-          output.append(p)
-        else:
-          output.append(int(p))
+        output.append(int(p))
         if int(p) > 0:
           cost = cost + (spread / ((1.0 - self.productivities[i]) * market.production_base_prices[i]))
       else:
@@ -91,9 +85,6 @@ class Person(object):
     return purchased
 
   def production_budget(self, liquidity):
-    if math.isnan(liquidity - liquidity*self.riskReserve):
-      print("liquidity: " + str(liquidity))
-      print("reserve: "  + str(liquidity*self.riskReserve))
     return liquidity - liquidity*self.riskReserve
 
   def consumer_budget(self, liquidity):
