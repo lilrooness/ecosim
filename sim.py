@@ -65,7 +65,6 @@ if __name__ == "__main__":
 
   #settle stage
   for i in range(len(people)):
-    #people[i].liquidity += market.cycles[market.cycle].settlement[i]
     banks[people[i].bank].deposit(i, market.cycles[market.cycle].settlement[i])
   
   market.cycle += 1
@@ -90,7 +89,6 @@ if __name__ == "__main__":
 
     #settle stage
     for i in range(len(people)):
-      #people[i].liquidity += market.cycles[market.cycle].settlement[i]
       banks[people[i].bank].deposit(i, market.cycles[market.cycle].settlement[i])
 
     market.cycle += 1
