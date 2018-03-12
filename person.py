@@ -1,4 +1,6 @@
 import math
+import random
+from utils import choices
 
 class Person(object):
   def __init__(self, productivities, preferences, investmentPref, savingsPref, riskReserve, bank, bankAccountId):
@@ -9,8 +11,11 @@ class Person(object):
     self.investmentPref = investmentPref
     self.savingsPref = savingsPref
     self.riskReserve = riskReserve
+    self.reskilling = False
+    self.lastPriceWasZero = False
 
   def produce(self, market, banks):
+    self.reskilling = False
     budget = self.production_budget(banks[self.bank].available_balance(self.bankAccountId))
     spread = budget / float(sum([1 for p in self.productivities if p > 0]))
     output = []
@@ -24,11 +29,26 @@ class Person(object):
       else:
         output.append(0)
     banks[self.bank].debit(self.bankAccountId, cost)
+    if cost == 0:
+      self.reskill(market.production_base_prices)
+      banks[self.bank].deposit(self.bankAccountId, 10000)
     return output
+
+  def reskill(self, production_base_prices):
+    self.reskilling = True
+    self.lastPriceWasZero = True
+    p = [0 for n in range(len(production_base_prices))]
+    #a person can be able to produce up to half of the products
+    products = choices(range(len(p)), random.randint(1, int(len(p)-1))) 
+    for i in products:
+      # generate number between 0.1 and 0.5 rounded to 1dp
+      p[i] = round((random.random() * 4) / 10, 1) + 0.1 
+    self.productivities = p
 
   def offer_market(self, produce, market, idInMarket):
     prices = []
-    if market.cycle == 0: 
+    if market.cycle == 0 or self.lastPriceWasZero and not self.reskilling:
+      self.lastPriceWasZero = False
       profit_margin = 0.1 # 10 percent profit margin on all sales
       for i in range(len(self.productivities)):
         if produce[i] > 0:
@@ -72,6 +92,8 @@ class Person(object):
     return prices
 
   def consume(self, market, banks):
+    if self.reskilling:
+      return
     availableSpend = self.consumer_budget(banks[self.bank].available_balance(self.bankAccountId))
     amountSpent = 0
     purchased = [0 for i in range(len(self.preferences))]

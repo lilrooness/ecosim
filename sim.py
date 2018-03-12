@@ -9,7 +9,9 @@ from person import Person
 from bank import Bank
 from bank import CreditAgency
 
-PRODUCTION_PRICES = [10, 20, 30]
+from utils import choices
+
+PRODUCTION_PRICES = [10, 10, 10]
 
 def generate_person(bank, bankAccountId):
   productivities = generate_productivities()
@@ -18,9 +20,11 @@ def generate_person(bank, bankAccountId):
 
 def generate_productivities():
   p = [0 for n in range(len(PRODUCTION_PRICES))]
-  products = choices(range(len(p)), random.randint(1, int(len(p)-1))) #a person can be able to produce up to half of the products
+  #a person can be able to produce up to half of the products
+  products = choices(range(len(p)), random.randint(1, int(len(p)-1))) 
   for i in products:
-    p[i] = round((random.random() * 4) / 10, 1) + 0.1 # generate number between 0.1 and 0.5 rounded to 1dp
+    # generate number between 0.1 and 0.5 rounded to 1dp
+    p[i] = round((random.random() * 4) / 10, 1) + 0.1 
   return p
 
 #generate distribution of product preference
@@ -28,17 +32,6 @@ def generate_preferences():
   p = [random.random()*100 for n in range(len(PRODUCTION_PRICES))]
   s = sum(p)
   return [x/s for x in p]
-
-def choices(l, n):
-  return [l[i] for i in  choose_index(range(len(l)), n, [])]
-
-def choose_index(pool, n, acc):
-  if n == 0:
-    return acc
-  choice = random.choice(pool)
-  pool.remove(choice)
-  acc.append(choice)
-  return choose_index(pool, n-1, acc)
 
 if __name__ == "__main__":
   banks = [Bank(100000000, 0.1, 0.02)]
