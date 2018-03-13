@@ -45,6 +45,13 @@ class Person(object):
       p[i] = round((random.random() * 4) / 10, 1) + 0.1 
     self.productivities = p
 
+  def incrase_productivity(self, investment, productivityIndex):
+    if investment <= 10000:
+      j = 0.2 #increase coefficient
+      maxR = 100000
+      increase = ((1/self.productivities[productivityIndex]) * investment) / maxR
+      self.productivities[productivityIndex] += self.increase * j 
+
   def offer_market(self, produce, market, idInMarket):
     prices = []
     if market.cycle == 0 or self.lastPriceWasZero and not self.reskilling:
