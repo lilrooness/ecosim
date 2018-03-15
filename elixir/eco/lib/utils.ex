@@ -2,7 +2,7 @@ defmodule Products do
 
   @spec get_production_cost(map, list, number, number) :: {amount :: number, labourCost :: number}
   def get_production_cost(product, resources, labour, productivity) do
-    labourCost = productivity * product.labour
+    labourCost = (1-productivity) * product.labour
     amountProduced = case product.deps do
       [] ->
         trunc(labour / labourCost)

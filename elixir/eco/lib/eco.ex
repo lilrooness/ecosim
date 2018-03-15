@@ -23,71 +23,6 @@ defmodule EcoSupervisor do
   end
 end
 
-defmodule Person do
-  use GenServer
-
-  def start_link(id) do
-    GenServer.start_link(__MODULE__, [id], [])
-  end
-
-  def init([id]) do
-    GenServer.cast(Bank, {:open_account, id, 10000})
-    {:ok, products} = Application.fetch_env(:eco, :products)
-    
-    {:ok, %{
-      id: id,
-      labour: 1000, 
-      productivities: random_productivities(products),
-      preferences: (for prod <- products, do: {prod.id, :rand.uniform(10)/10}),
-      produce: (for prod <- products, do: {prod.id, 0}),
-      resources: (for prod <- products, do: {prod.id, 0}),
-      productionProportion: 0.5
-    }}
-  end
-
-  def handle_info(:tick, state) do
-    {id, {amount, cost}} = produce(state)
-    newAmount = :proplists.get_value(id, state.produce, 0) + amount
-    newProduce = :proplists.delete(id, state.produce) ++ [{id, amount}]
-    {:noreply, %{state | :produce => newProduce}}
-  end
-
-  defp produce(state) do
-    {:ok, products} = Application.fetch_env(:eco, :products)
-    case Market.get_cycle(Market) do
-      {:ok, 0} ->
-        costs = Products.get_production_costs(products,state.resources,
-				      state.labour,
-				      state.productivities)
-        
-	maxfun = fn
-	  (e, []) -> e
-	  ({newId, {x, newCost}}, {_id, {max, _}} = _acc) when x > max -> {newId, {x, newCost}}
-	  ({_newId, {x, newCost}}, {_id, {max, _}} = acc) when x <= max -> acc
-	end
-	List.foldl((for {id, {amount, cost}} <- costs, do: {id, {amount, cost}}),[], maxfun)
-      {:ok, _} ->
-        []
-    end
-  end
- 
-  def child_spec([id]) do
-    %{
-      id: id,
-      restart: :permanent,
-      shutdown: 5000,
-      start: {__MODULE__, :start_link, [id]},
-      type: :worker
-    }
-  end
-
-  defp random_productivities(products) do
-    randomVals = for _ <- 1..length(products), do: :rand.uniform(10)
-    sum = List.foldl(randomVals, 0, &(&1 + &2))
-    for {n, prod} <- List.zip([randomVals, products]), do: {prod.id, n/sum}
-  end
-end
-
 defmodule Bank do
   use GenServer
 
@@ -155,16 +90,92 @@ defmodule Market do
     }}
   end
 
+  def handle_cast({from, {:sell_order, productId, number, pricePerProduct}}, state) do
+    uuid = UUID.uuid1()
+    {:noreply, %{state | 
+      :sell_orders => state.sell_orders ++ [{uuid, {productId, {pricePerProduct, number}, from}}]
+    }}
+  end
+
+  def handle_cast({from, {:buy_order, productId, number, pricePerProduct}}, state) do
+    uuid = UUID.uuid1()
+    {:noreply, %{state | 
+      :buy_orders => state.buy_orders ++ [{uuid, {productId, {pricePerProduct, number}, from}}]
+    }}
+  end
+
+  def handle_cast({:sell_product, sellId, amount, buyerPid}, state) do
+    case :proplists.get_value(sellId, state.sell_orders) do
+      :undefined ->
+        :ok
+      item ->
+        {prodId, {price, _availableAmount}, sellerPid} = item
+        funds = amount * price
+	if funds == 0 do
+	  IO.puts("funds: " <> inspect(funds))
+          IO.puts("amount: " <> inspect(amount))
+	  IO.puts("price: " <> inspect(price))
+	end
+	GenServer.cast(buyerPid, {:async_debit, funds})
+	GenServer.cast(sellerPid, {:credit, funds})
+	GenServer.cast(sellerPid, {:produce_sold, prodId, amount})
+    
+    end
+    {:noreply, state}
+  end
+
+  def handle_call({:bid, {productId, bidPrice, amount}}, {from, _ref}, state) do
+    {sold, purchased, spent}= List.foldl(state.sell_orders, {_sold=[], _purchased=0, _spent=0}, 
+        fn(sellItem, {sold, purchased, spent}) ->
+      {sellId, {sellProdId, {sellPrice, available}, _sellerPid}} = sellItem
+      case sellPrice <= bidPrice && sellProdId == productId do
+        true ->
+          amountWanted = amount - purchased
+          cond do
+            amountWanted == 0 || available == 0 ->
+              {sold ++ [0], purchased, spent}
+            available >= amountWanted ->
+              GenServer.cast(self(), {:sell_product, sellId, amountWanted, from})
+              {sold ++ [amountWanted], amount, spent + amountWanted * sellPrice}
+            available <= amountWanted ->
+              GenServer.cast(self(), {:sell_product, sellId, available, from})
+              {sold ++ [available], purchased + available, spent + available * sellPrice}
+          end
+        false ->
+          {sold ++ [0], purchased, spent}
+      end
+    end)
+    newSellOrders = for {sellAmount, _order = {uuid, {prodId, {price, available}, sellerPid}}}
+        <- List.zip([sold, state.sell_orders]), do:
+	{uuid, {prodId, {price, available - sellAmount}, sellerPid}}
+    {:reply, {purchased, spent}, %{state | :sell_orders => newSellOrders}}
+  end
+
   def handle_call(:get_cycle, _from, state) do
     {:reply, {:ok, state.cycle}, state}
   end
 
-  def handle_cast({:sell_order, productId, number, pricePerProduct}, state) do
-    
+  def handle_call({:get_average_price, prodId}, _from, state) do
+    prices = for {_uuid, {id, {price, _}, _}} <- state.sell_orders, id == prodId, do: price
+    avg = case prices do
+      [] ->
+        0
+      _ ->
+        Enum.sum(prices) / length(prices)
+    end
+    {:reply, {:ok, avg}, state}
   end
 
   def get_cycle(marketId) do
     GenServer.call(marketId, :get_cycle)
+  end
+
+  def get_avg_price(marketId, prodId) do
+    GenServer.call(marketId, {:get_average_price, prodId})
+  end
+
+  def place_bid(marketId, id, ppp, amount) do
+    GenServer.call(marketId, {:bid, {id, ppp, amount}})
   end
 
   def child_spec() do
@@ -215,6 +226,10 @@ defmodule PeopleSupervisor do
 
   def tick() do
     for {_, pid, _, _} <- Supervisor.which_children(__MODULE__), do: send(pid, :tick)
+  end
+
+  def consume() do
+    for {_, pid, _, _} <- Supervisor.which_children(__MODULE__), do: send(pid, :consume)
   end
 
   def child_spec(nPeople) do
