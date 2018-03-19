@@ -90,6 +90,59 @@ defmodule Market do
     }}
   end
 
+  def handle_info(:produce_tick_done, state) do
+    IO.puts("PRODUCTION IS OVER")
+    GenServer.cast(self(), :tick_consume)
+    {:noreply, state}
+  end
+
+  def handle_info(:consume_tick_done, state) do
+    IO.puts("CONSUMTION IS OVER")
+    {:noreply, state}
+  end
+
+  def handle_cast(:tick_consume, state) do
+    parent = self()
+    spawnPid = spawn(fn() ->  
+      nIds = length(Supervisor.which_children(PeopleSupervisor))
+      receivedFun = fn
+        (^nIds, _) ->
+	  send(parent, :consume_tick_done)
+        (n, f) ->
+          receive do
+            :tick_complete ->
+	      IO.puts("done" <> inspect(n+1))
+	      f.(n + 1, f)
+	  end
+      end
+      receivedFun.(0, receivedFun)
+    end)
+    _ids = PeopleSupervisor.consume_tick(spawnPid)
+
+    {:noreply, state}
+  end
+
+  def handle_cast(:tick_produce, state) do
+    parent = self()
+    spawnPid = spawn(fn() ->
+      nIds = length(Supervisor.which_children(PeopleSupervisor))
+      receivedFun = fn
+        (^nIds, _) ->
+	  IO.puts("finished")
+	  send(parent, :produce_tick_done)
+        (n, f) ->
+          receive do
+            :tick_complete ->
+              IO.puts("done" <> inspect(n+1))
+	      f.(n + 1, f)
+	  end
+      end
+      receivedFun.(0, receivedFun)
+    end)
+    _ids = PeopleSupervisor.produce_tick(spawnPid)
+    {:noreply, state}
+  end
+
   def handle_cast({from, {:sell_order, productId, number, pricePerProduct}}, state) do
     uuid = UUID.uuid1()
     {:noreply, %{state | 
@@ -116,7 +169,7 @@ defmodule Market do
           IO.puts("amount: " <> inspect(amount))
 	  IO.puts("price: " <> inspect(price))
 	end
-	GenServer.cast(buyerPid, {:async_debit, funds})
+	GenServer.cast(buyerPid, {:debit, funds})
 	GenServer.cast(sellerPid, {:credit, funds})
 	GenServer.cast(sellerPid, {:produce_sold, prodId, amount})
     
@@ -125,7 +178,7 @@ defmodule Market do
   end
 
   def handle_call({:bid, {productId, bidPrice, amount}}, {from, _ref}, state) do
-    {sold, purchased, spent}= List.foldl(state.sell_orders, {_sold=[], _purchased=0, _spent=0}, 
+    {sold, purchased, spent} = List.foldl(state.sell_orders, {_sold=[], _purchased=0, _spent=0}, 
         fn(sellItem, {sold, purchased, spent}) ->
       {sellId, {sellProdId, {sellPrice, available}, _sellerPid}} = sellItem
       case sellPrice <= bidPrice && sellProdId == productId do
@@ -147,7 +200,7 @@ defmodule Market do
     end)
     newSellOrders = for {sellAmount, _order = {uuid, {prodId, {price, available}, sellerPid}}}
         <- List.zip([sold, state.sell_orders]), do:
-	{uuid, {prodId, {price, available - sellAmount}, sellerPid}}
+          {uuid, {prodId, {price, available - sellAmount}, sellerPid}}
     {:reply, {purchased, spent}, %{state | :sell_orders => newSellOrders}}
   end
 
@@ -224,8 +277,14 @@ defmodule PeopleSupervisor do
     Supervisor.init(children, strategy: :one_for_all)
   end
 
-  def tick() do
-    for {_, pid, _, _} <- Supervisor.which_children(__MODULE__), do: send(pid, :tick)
+  def produce_tick(caller) do
+    for {_, pid, _, _} <- Supervisor.which_children(__MODULE__), do: send(pid, {:tick_produce, caller})
+    for {id, _, _, _} <- Supervisor.which_children(__MODULE__), do: id
+  end
+
+  def consume_tick(caller) do
+    for {_, pid, _, _} <- Supervisor.which_children(__MODULE__), do: send(pid, {:tick_consume, caller})
+    for {id, _, _, _} <- Supervisor.which_children(__MODULE__), do: id
   end
 
   def consume() do

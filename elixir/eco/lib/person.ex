@@ -6,12 +6,12 @@ defmodule Person do
   end
 
   def init([id]) do
-    GenServer.cast(Bank, {:open_account, id, 10000})
     {:ok, products} = Application.fetch_env(:eco, :products)
-    
+    send(self(), {:open_bank_acount, 10000})
     {:ok, %{
       id: id,
       labour: 1000, 
+      liquidity_tracker: 0,
       productivities: random_productivities(products),
       preferences: random_preferences(products),
       produce: (for prod <- products, do: {prod.id, 0}),
@@ -28,35 +28,50 @@ defmodule Person do
 
   def handle_cast({:credit, amount}, state) do
     GenServer.cast(Bank, {:deposit, state.id, amount})
-    {:noreply, state}
+    {:noreply, %{state | :liquidity_tracker => state.liquidity_tracker + amount}}
   end
 
-  def handle_cast({:async_debit, amount}, state) do
+  def handle_cast({:tracking_debit, amount}, state) do
+    GenServer.call(Bank, {:withdraw, state.id, amount})
+    {:noreply, %{state | :liquidity_tracker => state.liquidity - amount}}
+  end
+
+  def handle_cast({:debit, amount}, state) do
     GenServer.call(Bank, {:withdraw, state.id, amount})
     {:noreply, state}
   end
-
-  def handle_call({:debit, amount}, _from, state) do
-    result = GenServer.call(Bank, {:withdraw, state.id, amount})
-    {:reply, result, state}
+ 
+  def handle_info({:open_bank_acount, liquidity}, state) do
+    GenServer.cast(Bank, {:open_account, state.id, liquidity})
+    {:noreply, %{state | :liquidity_tracker => liquidity}}
   end
 
-  def handle_info(:tick, state) do
-    send(self(), :produce)
+  def handle_info({:tick_produce, caller}, state) do
+    onDone = fn ->
+      send(caller, :tick_complete) 
+    end
+    send(self(), {:produce, onDone})
     {:noreply, state}
   end
 
-  def handle_info(:produce, state) do
-    {id, {amount, cost}} = produce(state)
+  def handle_info({:tick_consume, caller}, state) do
+    onDone = fn -> send(caller, :tick_complete) end
+    send(self(), {:consume, onDone})
+    {:noreply, state}
+  end
+
+  def handle_info({:produce, onDone}, state) do
+    {id, {amount, _cost}} = produce(state)
     newAmount = :proplists.get_value(id, state.produce, 0) + amount
     newProduce = :proplists.delete(id, state.produce) ++ [{id, newAmount}]
     sellPrice = get_sell_price(state)
     GenServer.cast(Market, {self(), {:sell_order, id, newAmount, sellPrice}})
-    {:noreply, %{state | :produce => newProduce, :labour => state.labour - cost}}
+    onDone.()
+    {:noreply, %{state | :produce => newProduce}}
   end
 
-  def handle_info(:consume, state) do
-    {:ok, liquidity} = GenServer.call(Bank, {:get_funds, state.id})
+  def handle_info({:consume, onDone}, state) do
+    liquidity = state.liquidity_tracker
     maxSpend = liquidity - liquidity*state.productionProportion
     # state.preferences all should add up to 1
     spendingVector = (for {id, pref} <- state.preferences, do: {id, pref * maxSpend})
@@ -71,15 +86,17 @@ defmodule Person do
       end
     end
     bids = (for {id, spend} <- spendingVector, do: amountsfun.(id, spend))
-    for bid <- bids, bid != :no_buy, Keyword.get(bid, :amount),
+    biddingResults = for bid <- bids, bid != :no_buy, Keyword.get(bid, :amount),
       do: Market.place_bid(Market,
                            Keyword.get(bid, :id),
 			   Keyword.get(bid, :ppp),
 			   Keyword.get(bid, :amount))
-    {:noreply, state}
+    actualSpend = Enum.sum(for {_, s} <- biddingResults, do: s)
+    onDone.()
+    {:noreply, %{state | :liquidity_tracker => state.liquidity_tracker - actualSpend}}
   end
 
-  defp get_sell_price(state) do
+  defp get_sell_price(_state) do
     case Market.get_cycle(Market) do
       {:ok, 0} ->
         :rand.normal(200, 90)
