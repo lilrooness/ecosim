@@ -84,6 +84,7 @@ defmodule Market do
 
   def init([]) do
     {:ok, %{
+      cycle_data: %{},
       buy_orders: [],
       sell_orders: [],
       cycle: 0
@@ -111,7 +112,6 @@ defmodule Market do
         (n, f) ->
           receive do
             :tick_complete ->
-	      IO.puts("done" <> inspect(n+1))
 	      f.(n + 1, f)
 	  end
       end
@@ -128,12 +128,10 @@ defmodule Market do
       nIds = length(Supervisor.which_children(PeopleSupervisor))
       receivedFun = fn
         (^nIds, _) ->
-	  IO.puts("finished")
 	  send(parent, :produce_tick_done)
         (n, f) ->
           receive do
             :tick_complete ->
-              IO.puts("done" <> inspect(n+1))
 	      f.(n + 1, f)
 	  end
       end
@@ -158,23 +156,21 @@ defmodule Market do
   end
 
   def handle_cast({:sell_product, sellId, amount, buyerPid}, state) do
-    case :proplists.get_value(sellId, state.sell_orders) do
+    newCycleData = case :proplists.get_value(sellId, state.sell_orders) do
       :undefined ->
         :ok
+	state.cycle_data
       item ->
         {prodId, {price, _availableAmount}, sellerPid} = item
         funds = amount * price
-	if funds == 0 do
-	  IO.puts("funds: " <> inspect(funds))
-          IO.puts("amount: " <> inspect(amount))
-	  IO.puts("price: " <> inspect(price))
-	end
 	GenServer.cast(buyerPid, {:debit, funds})
 	GenServer.cast(sellerPid, {:credit, funds})
 	GenServer.cast(sellerPid, {:produce_sold, prodId, amount})
-    
+	#newSales = {state.cycle_data[state.cycle][prodId] | state.cycle_data[state.cycle][prodId] ++ [%{amount: amount, ppp: price}]}
+        #%{state.cycle_data | cycle => state.cycle_data[state.cycle] ++ newSales}
+	state.cycle_data
     end
-    {:noreply, state}
+    {:noreply, %{state | :cycle_data => newCycleData}}
   end
 
   def handle_call({:bid, {productId, bidPrice, amount}}, {from, _ref}, state) do
