@@ -16,13 +16,13 @@ defmodule Market do
     {:reply, state.lots, state}
   end
 
-  def handle_call({:sell, productId, amount, sellerPid}, _from, state) do
+  def handle_call({:sell, productId, amount, basePrice, sellerPid}, _from, state) do
     lotNumber = UUID.uuid1()
     lot = %{
       :product_id => productId,
       :amount => amount,
       :seller_pid => sellerPid,
-      :bids => []
+      :bids => [%{:price => basePrice, :amount => 1, :bidder_pid => sellerPid}]
     }
     {:reply, {:ok, lotNumber}, %{state | :lots => Map.put(state.lots, lotNumber, lot)}}
   end
@@ -124,10 +124,6 @@ defmodule Market do
 
   def get_lots(pid) do
     GenServer.call(pid, :get_lots)
-  end
-
-  def get_products() do
-    [1,2,3,4,5]
   end
 
 end

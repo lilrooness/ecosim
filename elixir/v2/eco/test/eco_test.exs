@@ -9,15 +9,41 @@ defmodule EcoTest do
     assert length(preferences) == length(productIds)
   end
 
-  test "Person produces some product" do
+  test "Person get best production choice" do
     products = Application.get_env(:eco, :products)
-    productIds = for {id, _} <- products, do: id
+    productids = for {id, _} <- products, do: id
     testState = %{
       :funds => 1000,
       :labour => 1000,
       :id => 0,
-      :preferences => Person.generate_preferences(productIds),
-      :productivities => Person.generate_productivities(productIds),
+      :preferences => Person.generate_preferences(productids),
+      :productivities => Person.generate_productivities(productids),
+      :product_path => false,
+      :inventory => %{
+        "chicken" => 0,
+	"bowl of snot" => 0,
+        1 => 10,
+        2 => 35,
+        3 => 0,
+        4 => 0,
+        5 => 0,
+        6 => 0
+      }
+    }
+
+    Person.calculate_best_option(testState, products)
+  end
+
+  test "Person produces some product" do
+    products = Application.get_env(:eco, :products)
+    productids = for {id, _} <- products, do: id
+    testState = %{
+      :funds => 1000,
+      :labour => 1000,
+      :id => 0,
+      :preferences => Person.generate_preferences(productids),
+      :productivities => Person.generate_productivities(productids),
+      :product_path => false,
       :inventory => %{
         1 => 10,
 	2 => 35,
@@ -31,6 +57,7 @@ defmodule EcoTest do
     newState = Person.produce_product(4, testState, products)
     assert newState.labour == 984
     assert newState.inventory[4] == 1
+    assert :proplists.get_value(:cost, newState.product_path) == 0
   end
 
   test "Person get production amount" do
@@ -42,6 +69,7 @@ defmodule EcoTest do
       :id => 0,
       :preferences => Person.generate_preferences(productIds),
       :productivities => Person.generate_productivities(productIds),
+      :product_path => false,
       :inventory => %{
         1 => 10,
 	2 => 35,
@@ -63,6 +91,7 @@ defmodule EcoTest do
       :id => 0,
       :preferences => Person.generate_preferences(productIds),
       :productivities => Person.generate_productivities(productIds),
+      :product_path => false,
       :inventory => %{
         1 => 10,
 	2 => 35,
