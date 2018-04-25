@@ -2,25 +2,6 @@
 # and its dependencies with the aid of the Mix.Config module.
 use Mix.Config
 
-config :eco,
-  products: [
-  # base products (eg metal ore, fruits etc...)
-    %{id: 1, labour: 10, deps: []},
-    %{id: 2, labour: 10, deps: []},
-    %{id: 3, labour: 10, deps: []},
-
-  # 2nd teir products (eg tin cans, fruit pies etc...)
-    %{id: 4, labour: 100, deps: [
-      %{id: 1, amount: 300},
-      %{id: 3, amount: 100},
-    ]},
-
-    %{id: 5, labour: 100, deps: [
-      %{id: 2, amount: 300},
-      %{id: 3, amount: 100},
-    ]}
-  ]
-
 # This configuration is loaded before any dependency and is restricted
 # to this project. If another project depends on this project, this
 # file won't be loaded nor affect the parent project. For this reason,
@@ -47,3 +28,66 @@ config :eco,
 # here (which is why it is important to import them last).
 #
 #     import_config "#{Mix.env}.exs"
+
+config(:eco, [
+  {:products, %{
+    "chicken" => %{
+      :labour_cost => 4,
+      :class => :food,
+      :raw => false,
+      :food_value => 20,
+      :deps => [
+        [id: "bowl of snot", amount: 2]
+      ]
+    },
+    "bowl of snot" => %{
+      :labour_cost => 5,
+      :class => :food,
+      :raw => true,
+      :food_value => 10
+    },
+    1 => %{
+      :labour_cost => 15,
+      :class => :base,
+      :raw => true
+    },
+    2 => %{
+      :labour_cost => 13,
+      :class => :base,
+      :raw => true
+    },
+    3 => %{
+      :labour_cost => 11,
+      :class => :base,
+      :raw => true
+    },
+
+    4 => %{
+      :labour_cost => 16,
+      :class => :comodity,
+      :raw => false,
+      :deps => [
+        [id: 1, amount: 10],
+	[id: 2, amount: 35]]
+    },
+
+    5 =>%{
+      :labour_cost => 20,
+      :class => :comodity,
+      :raw => false,
+      :deps => [
+        [id: 1, amount: 7],
+	[id: 3, amount: 20]]
+    },
+
+    6 => %{
+      :labour_cost => 19,
+      :class => :comodity,
+      :raw => false,
+      :deps => [
+        [id: 2, amount: 3],
+	[id: 3, amount: 4]]
+    }
+  }}
+])
+

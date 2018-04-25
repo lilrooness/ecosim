@@ -6,143 +6,136 @@ defmodule Person do
   end
 
   def init([id]) do
-    {:ok, products} = Application.fetch_env(:eco, :products)
-    send(self(), {:open_bank_acount, 10000})
+    products = for {id, _} <- Application.get_env(:eco, :products), do: id
+    inventory = List.foldl(products, %{}, fn(elem, acc) -> 
+      Map.put(acc, elem, 0)
+    end)
     {:ok, %{
-      id: id,
-      labour: 1000, 
-      liquidity_tracker: 0,
-      productivities: random_productivities(products),
-      preferences: random_preferences(products),
-      produce: (for prod <- products, do: {prod.id, 0}),
-      resources: (for prod <- products, do: {prod.id, 0}),
-      productionProportion: 0.5
+      :funds => 1000,
+      :max_labour => 1000,
+      :labour => 1000,
+      :id => id,
+      :preferences => generate_preferences(products),
+      :productivities => generate_productivities(products),
+      :inventory => inventory,
+      :product_path => false
     }}
   end
 
-  def handle_cast({:produce_sold, id, amount}, state) do
-    newAmount = :proplists.get_value(id, state.produce) - amount
-    newProduce = :proplists.delete(id, state.produce) ++ [{id, newAmount}]
-    {:noreply, %{state | :produce => newProduce}}
+  def handle_info(:tick, state) do
+    products = Application.get_env(:eco, :products)
+    newState = produce(state, products) |> auction |> consume
+    {:noreply, newState}
   end
 
-  def handle_cast({:credit, amount}, state) do
-    GenServer.cast(Bank, {:deposit, state.id, amount})
-    {:noreply, %{state | :liquidity_tracker => state.liquidity_tracker + amount}}
-  end
-
-  def handle_cast({:tracking_debit, amount}, state) do
-    GenServer.call(Bank, {:withdraw, state.id, amount})
-    {:noreply, %{state | :liquidity_tracker => state.liquidity - amount}}
-  end
-
-  def handle_cast({:debit, amount}, state) do
-    GenServer.call(Bank, {:withdraw, state.id, amount})
-    {:noreply, state}
-  end
- 
-  def handle_info({:open_bank_acount, liquidity}, state) do
-    GenServer.cast(Bank, {:open_account, state.id, liquidity})
-    {:noreply, %{state | :liquidity_tracker => liquidity}}
-  end
-
-  def handle_info({:tick_produce, caller}, state) do
-    onDone = fn ->
-      send(caller, :tick_complete) 
-    end
-    send(self(), {:produce, onDone})
+  def handle_info({:sold, _info}, state) do
     {:noreply, state}
   end
 
-  def handle_info({:tick_consume, caller}, state) do
-    onDone = fn -> send(caller, :tick_complete) end
-    send(self(), {:consume, onDone})
-    {:noreply, state}
+  def handle_info({:won, info}, state) do
+    productId = info[:product_id]
+    amount = info[:amount]
+    totalPrice = info[:total_price]
+    newInventory = %{state.inventory | productId => state.inventory[productId] + amount}
+    {:noreply, %{state | :inventory => newInventory,
+               :funds => state.funds - totalPrice}}
   end
 
-  def handle_info({:produce, onDone}, state) do
-    {id, {amount, _cost}} = produce(state)
-    newAmount = :proplists.get_value(id, state.produce, 0) + amount
-    newProduce = :proplists.delete(id, state.produce) ++ [{id, newAmount}]
-    sellPrice = get_sell_price(state)
-    GenServer.cast(Market, {self(), {:sell_order, id, newAmount, sellPrice}})
-    onDone.()
-    {:noreply, %{state | :produce => newProduce}}
+  def handle_info({:sold, info}, state) do
+    productId = info[:product_id]
+    amount = info[:amount]
+    netGain = info[:net_gain]
+    newInventory = %{state.inventory | productId => state.inventory[productId] - amount}
+    {:noreply, %{state | :inventory => newInventory,
+               :funds => state.funds + netGain}}
   end
 
-  def handle_info({:consume, onDone}, state) do
-    liquidity = state.liquidity_tracker
-    maxSpend = liquidity - liquidity*state.productionProportion
-    # state.preferences all should add up to 1
-    spendingVector = (for {id, pref} <- state.preferences, do: {id, pref * maxSpend})
-    amountsfun = fn(id, spend) ->
-      case Market.get_avg_price(Market, id) do
-        {:ok, 0} ->
-          :no_buy
-        {:ok, avg} ->
-          # willing to pay a normal distribution around the average price  
-	  ppp = :rand.normal(avg, avg/2)
-	  [ppp: ppp, amount: trunc(spend / ppp), id: id]
-      end
-    end
-    bids = (for {id, spend} <- spendingVector, do: amountsfun.(id, spend))
-    biddingResults = for bid <- bids, bid != :no_buy, Keyword.get(bid, :amount),
-      do: Market.place_bid(Market,
-                           Keyword.get(bid, :id),
-			   Keyword.get(bid, :ppp),
-			   Keyword.get(bid, :amount))
-    actualSpend = Enum.sum(for {_, s} <- biddingResults, do: s)
-    onDone.()
-    {:noreply, %{state | :liquidity_tracker => state.liquidity_tracker - actualSpend}}
+  def consume(state) do
+    
   end
 
-  defp get_sell_price(_state) do
-    case Market.get_cycle(Market) do
-      {:ok, 0} ->
-        :rand.normal(200, 90)
-      {:ok, _} ->
-        :rand.normal(200, 90)
+  def auction(state) do
+    
+  end
+
+  def produce(state, products) do
+    
+  end
+
+  def produce_product(productId, state, products) do
+    
+  end
+
+  def get_production_amount(productId, inventory, products, labour) do
+    if products[productId][:raw] do
+      Float.floor(labour / products[productId][:labour_cost])
+    else
+      deps = products[productId][:deps]
+      productionLimits = Enum.map(deps, fn(dep) -> 
+        inventory[:proplists.get_value(:id, dep)] / :proplists.get_value(:amount, dep)
+      end)
+      [maxProduceable | _] = Enum.sort(productionLimits)
+      min(Float.floor(maxProduceable), Float.floor(labour / products[productId][:labour_cost]))
     end
   end
 
-  defp produce(state) do
-    {:ok, products} = Application.fetch_env(:eco, :products)
-    case Market.get_cycle(Market) do
-      {:ok, 0} ->
-        costs = Products.get_production_costs(products,state.resources,
-                                              state.labour,
-                                              state.productivities)
-         
-	maxfun = fn
-	  (e, []) -> e
-	  ({newId, {x, newCost}}, {_id, {max, _}} = _acc) when x > max -> {newId, {x, newCost}}
-	  ({_, {x, _}}, {_id, {max, _}} = acc) when x <= max -> acc
-	end
-	List.foldl((for {id, {amount, cost}} <- costs, do: {id, {amount, cost}}),[], maxfun)
-      {:ok, _} ->
-        []
+  def can_produce_now(productId, state, products) do
+    product = products[productId]
+    if product.raw do
+      true
+    else
+      has_nessecary_resources(product.deps, state.inventory)
     end
   end
- 
-  def child_spec([id]) do
-    %{
-      id: id,
-      restart: :permanent,
-      shutdown: 5000,
-      start: {__MODULE__, :start_link, [id]},
-      type: :worker
-    }
+
+  def has_nessecary_resources(productDeps, inventory) do
+    has_nessecary_resources(productDeps, inventory, true)
   end
 
-  defp random_productivities(products) do
-    randomVals = for _ <- 1..length(products), do: :rand.uniform(10)
-    sum = List.foldl(randomVals, 0, &(&1 + &2))
-    for {n, prod} <- List.zip([randomVals, products]), do: {prod.id, n/sum}
+  def has_nessecary_resources(_, _, false) do
+    false
   end
 
-  defp random_preferences(products) do
-    randomVals = for _ <- 1..length(products), do: :rand.uniform(10)
-    sum = List.foldl(randomVals, 0, &(&1 + &2))
-    for {n, prod} <- List.zip([randomVals, products]), do: {prod.id, n/sum}
+  def has_nessecary_resources([], _, true) do
+    true
+  end
+
+  def has_nessecary_resources([dep | rest], inventory, true) do
+    depId = :proplists.get_value(:id, dep)
+    result = if :proplists.get_value(:amount, dep) >= inventory[depId] do
+      true
+    else
+      false
+    end
+    has_nessecary_resources(rest, inventory, result)
+  end
+
+  def calculate_best_option(state, products) do
+    if state.product_path != false do
+      state.product_path.choice
+    else
+      amounts = for {id, _p} <- products,
+        do: {id, get_production_amount(id, state.inventory, products, state.labour)}
+      [{bestChoice, _}| _] = Enum.sort(amounts, fn({_, a}, {_, b}) -> a >= b end)
+      bestChoice
+    end
+  end
+
+  def generate_productivities(products) do
+    numbers = for p <- products, do: {p, :rand.uniform(100)}
+    sum = Enum.sum(for {_, s} <- numbers, do: s)
+    List.foldl(numbers, %{}, fn({p, x}, map) ->
+      Map.put(map, p, x/sum)
+    end)
+  end
+
+  def generate_preferences(productIds) do
+    ps = for id <- productIds, do: {id, :rand.uniform(100)}
+    sum = Enum.sum((for {_, s} <- ps, do: s))
+    List.foldl(ps, %{}, fn({p, x}, map) ->
+      Map.put(map, p, x/sum)
+    end)
   end
 end
+
+

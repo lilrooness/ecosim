@@ -1,300 +1,138 @@
-defmodule Eco do
-  use Application
-  def start(_type, _args) do
-    EcoSupervisor.start_link()
-  end
-end
-
-defmodule EcoSupervisor do
-  use Supervisor
-
-  def start_link() do
-    Supervisor.start_link(__MODULE__, [], [name: __MODULE__])
-  end
-
-  def init([]) do
-
-    children = [
-      {Market, []},
-      {BankSupervisor, []},
-      {PeopleSupervisor, [1000]}
-    ]
-    Supervisor.init(children, strategy: :rest_for_one)
-  end
-end
-
-defmodule Bank do
-  use GenServer
-
-  def start_link(id) do
-    GenServer.start_link(__MODULE__, [id], [name: __MODULE__])
-  end
-
-  def init([id]) do
-    {:ok, %{
-      id: id,
-      liquididy: 10000,
-      liability: 0,
-      accounts: %{},
-      loans: []
-    }}
-  end
-
-  def handle_cast({:open_account, id, funds}, state) do
-    {:noreply, %{state | :accounts => Map.merge(state.accounts, %{id => funds})}}
-  end
-
-  def handle_cast({:deposit, id, funds}, state) do
-    {:noreply,
-      %{state | :accounts =>
-        %{state.accounts | id => funds + state.accounts[id]}}}
-  end
-
-  def handle_call({:withdraw, id, funds}, _from, state) do
-    if state.accounts[id] >= funds do
-      {:reply, {:ok, funds},
-        %{state | :accounts =>
-	  %{state.accounts | id => state.accounts[id] - funds}}}
-    else
-      {:reply, {:error, :not_enough_funds}, state}
-    end
-  end
-
-  def handle_call({:get_funds, id}, _from, state) do
-    {:reply, {:ok, state.accounts[id]}, state}
-  end
-
-  def child_spec([id]) do
-    %{
-      id: id,
-      restart: :permanent,
-      shutdown: 5000,
-      start: {__MODULE__, :start_link, [id]},
-      type: :worker
-    }
-  end
-end
-
 defmodule Market do
   use GenServer
 
-  def start_link([]) do
+  def start_link() do
     GenServer.start_link(__MODULE__, [], [name: __MODULE__])
   end
 
   def init([]) do
     {:ok, %{
-      cycle_data: %{},
-      buy_orders: [],
-      sell_orders: [],
-      cycle: 0
-    }}
+        :lots => %{},
+	:product_prices => %{}
+      }}
   end
 
-  def handle_info(:produce_tick_done, state) do
-    IO.puts("PRODUCTION IS OVER")
-    GenServer.cast(self(), :tick_consume)
-    {:noreply, state}
+  def handle_call(:get_lots, _from, state) do
+    {:reply, state.lots, state}
   end
 
-  def handle_info(:consume_tick_done, state) do
-    IO.puts("CONSUMTION IS OVER")
-    {:noreply, state}
+  def handle_call({:sell, productId, amount, basePrice, sellerPid}, _from, state) do
+    lotNumber = UUID.uuid1()
+    lot = %{
+      :product_id => productId,
+      :amount => amount,
+      :seller_pid => sellerPid,
+      :base_price => basePrice,
+      :bids => []
+    }
+    {:reply, {:ok, lotNumber}, %{state | :lots => Map.put(state.lots, lotNumber, lot)}}
   end
 
-  def handle_cast(:tick_consume, state) do
-    parent = self()
-    spawnPid = spawn(fn() ->  
-      nIds = length(Supervisor.which_children(PeopleSupervisor))
-      receivedFun = fn
-        (^nIds, _) ->
-	  send(parent, :consume_tick_done)
-        (n, f) ->
-          receive do
-            :tick_complete ->
-	      f.(n + 1, f)
-	  end
-      end
-      receivedFun.(0, receivedFun)
-    end)
-    _ids = PeopleSupervisor.consume_tick(spawnPid)
-
-    {:noreply, state}
-  end
-
-  def handle_cast(:tick_produce, state) do
-    parent = self()
-    spawnPid = spawn(fn() ->
-      nIds = length(Supervisor.which_children(PeopleSupervisor))
-      receivedFun = fn
-        (^nIds, _) ->
-	  send(parent, :produce_tick_done)
-        (n, f) ->
-          receive do
-            :tick_complete ->
-	      f.(n + 1, f)
-	  end
-      end
-      receivedFun.(0, receivedFun)
-    end)
-    _ids = PeopleSupervisor.produce_tick(spawnPid)
-    {:noreply, state}
-  end
-
-  def handle_cast({from, {:sell_order, productId, number, pricePerProduct}}, state) do
-    uuid = UUID.uuid1()
-    {:noreply, %{state | 
-      :sell_orders => state.sell_orders ++ [{uuid, {productId, {pricePerProduct, number}, from}}]
-    }}
-  end
-
-  def handle_cast({from, {:buy_order, productId, number, pricePerProduct}}, state) do
-    uuid = UUID.uuid1()
-    {:noreply, %{state | 
-      :buy_orders => state.buy_orders ++ [{uuid, {productId, {pricePerProduct, number}, from}}]
-    }}
-  end
-
-  def handle_cast({:sell_product, sellId, amount, buyerPid}, state) do
-    newCycleData = case :proplists.get_value(sellId, state.sell_orders) do
-      :undefined ->
-        :ok
-	state.cycle_data
-      item ->
-        {prodId, {price, _availableAmount}, sellerPid} = item
-        funds = amount * price
-	GenServer.cast(buyerPid, {:debit, funds})
-	GenServer.cast(sellerPid, {:credit, funds})
-	GenServer.cast(sellerPid, {:produce_sold, prodId, amount})
-	#newSales = {state.cycle_data[state.cycle][prodId] | state.cycle_data[state.cycle][prodId] ++ [%{amount: amount, ppp: price}]}
-        #%{state.cycle_data | cycle => state.cycle_data[state.cycle] ++ newSales}
-	state.cycle_data
+  def handle_cast({:bid, lotNumber, price, amount, bidderPid}, state) do
+    bid = %{
+      :price => price,
+      :amount => amount,
+      :bidder_pid => bidderPid
+    }
+    
+    updatedLots = case state.lots[lotNumber] do
+      nil ->
+        state.lots
+      lot ->
+        if bid.amount <= lot.amount do
+          %{state.lots | lotNumber => Map.put(lot, :bids, lot.bids ++ [bid])}
+	else
+          state.lots
+	end
     end
-    {:noreply, %{state | :cycle_data => newCycleData}}
+    {:noreply, %{state | :lots => updatedLots}}
   end
 
-  def handle_call({:bid, {productId, bidPrice, amount}}, {from, _ref}, state) do
-    {sold, purchased, spent} = List.foldl(state.sell_orders, {_sold=[], _purchased=0, _spent=0}, 
-        fn(sellItem, {sold, purchased, spent}) ->
-      {sellId, {sellProdId, {sellPrice, available}, _sellerPid}} = sellItem
-      case sellPrice <= bidPrice && sellProdId == productId do
-        true ->
-          amountWanted = amount - purchased
-          cond do
-            amountWanted == 0 || available == 0 ->
-              {sold ++ [0], purchased, spent}
-            available >= amountWanted ->
-              GenServer.cast(self(), {:sell_product, sellId, amountWanted, from})
-              {sold ++ [amountWanted], amount, spent + amountWanted * sellPrice}
-            available <= amountWanted ->
-              GenServer.cast(self(), {:sell_product, sellId, available, from})
-              {sold ++ [available], purchased + available, spent + available * sellPrice}
-          end
-        false ->
-          {sold ++ [0], purchased, spent}
-      end
-    end)
-    newSellOrders = for {sellAmount, _order = {uuid, {prodId, {price, available}, sellerPid}}}
-        <- List.zip([sold, state.sell_orders]), do:
-          {uuid, {prodId, {price, available - sellAmount}, sellerPid}}
-    {:reply, {purchased, spent}, %{state | :sell_orders => newSellOrders}}
+  def handle_cast(:clear_all_bids, state) do
+    for {lotNumber, _lot} <- state.lots, do: clear_bids(lotNumber, state)
+    {:noreply, %{state | :lots => %{}}}
   end
 
-  def handle_call(:get_cycle, _from, state) do
-    {:reply, {:ok, state.cycle}, state}
+  defp clear_bids(lotNumber, state) do
+    lot = state.lots[lotNumber]
+    # Sort bids high to low
+    bids = Enum.sort(lot[:bids], 
+                      &(&1[:price] >= &2[:price]))
+    
+    clear_bids(bids, lot.amount, lot.seller_pid, lot.product_id, lotNumber, 0, [])
   end
 
-  def handle_call({:get_average_price, prodId}, _from, state) do
-    prices = for {_uuid, {id, {price, _}, _}} <- state.sell_orders, id == prodId, do: price
-    avg = case prices do
-      [] ->
-        0
-      _ ->
-        Enum.sum(prices) / length(prices)
+  defp clear_bids([], remainingStock, sellerPid, productId, lotNumber, lastSalePrice, unfulfilledOrders) do
+    sell_fixed_price(unfulfilledOrders, sellerPid, remainingStock, lastSalePrice, lotNumber, productId)
+  end
+
+  defp clear_bids([bid | rest], stock, sellerPid, productId, lotNumber, lastSalePrice, unfulfilledOrders) do
+    {soldAmount, salePrice, unfulfilled} = if bid.amount <= stock do
+      send(bid.bidder_pid, {:won_bid, 
+        [product_id: productId,
+	 amount: bid.amount,
+	 payable: bid.price * bid.amount,
+	 lot_number: lotNumber]})
+      send(sellerPid, {:sold,
+        [lot_number: lotNumber,
+	 amount: bid.amount,
+	 total_price: bid.price * bid.amount]})
+      {bid.amount, bid.price, unfulfilledOrders}
+    else
+      {0, lastSalePrice, unfulfilledOrders ++ [bid]}
     end
-    {:reply, {:ok, avg}, state}
+    clear_bids(rest, stock - soldAmount, sellerPid, productId, lotNumber, salePrice, unfulfilled)
   end
 
-  def get_cycle(marketId) do
-    GenServer.call(marketId, :get_cycle)
+  defp sell_fixed_price([], _sellerPid, stock, _price, _lotNumber, _productId) do
+    stock
   end
 
-  def get_avg_price(marketId, prodId) do
-    GenServer.call(marketId, {:get_average_price, prodId})
+  defp sell_fixed_price(_bids, _sellerPid, 0, _price, _lotNumber, _productId) do
+    0
   end
 
-  def place_bid(marketId, id, ppp, amount) do
-    GenServer.call(marketId, {:bid, {id, ppp, amount}})
+  defp sell_fixed_price([bid | rest], sellerPid, stock, price, lotNumber, productId) do
+    newStock = cond do
+      bid.amount <= stock ->
+        send(sellerPid, sale_msg(lotNumber, bid.amount, price * bid.amount))
+        send(bid.bidder_pid, bid_won_msg(lotNumber, bid.amount, price * bid.amount, productId))
+	stock - bid.amount
+      bid.amount > stock ->
+        send(sellerPid, sale_msg(lotNumber, stock, price * stock))
+	send(bid.bidder_pid, bid_won_msg(lotNumber, stock, price * stock, productId))
+	0
+    end
+    sell_fixed_price(rest, sellerPid, newStock, price, lotNumber, productId)
   end
 
-  def child_spec() do
-    %{
-      id: __MODULE__,
-      restart: :permanent,
-      shutdown: 5000,
-      start: {__MODULE__, :start_link, []},
-      type: :worker
-    }
-  end
-end
-
-defmodule BankSupervisor do
-  use Supervisor
-
-  def start_link([]) do
-    Supervisor.start_link(__MODULE__, [], [name: __MODULE__])
+  defp sale_msg(lotNumber, amount, totalPrice) do
+    {:sold, [
+      lot_number: lotNumber,
+      amount: amount,
+      total_price: totalPrice
+    ]}
   end
 
-  def init([]) do
-    children = [{Bank, [1]}]
-    Supervisor.init(children, strategy: :one_for_all)
+  defp bid_won_msg(lotNumber, amount, payable, productId) do
+    {:won_bid, [
+      lot_number: lotNumber,
+      amount: amount,
+      payable: payable,
+      product_id: productId
+    ]}
   end
 
-  def child_spec() do
-    %{
-      id: __MODULE__,
-      restart: :permanent,
-      shutdown: 5000,
-      start: {__MODULE__, :start_link, []},
-      type: :supervisor
-    }
-  end
-end
-
-defmodule PeopleSupervisor do
-  use Supervisor
-
-  def start_link([npeople]) do
-    Supervisor.start_link(__MODULE__, [npeople], [name: __MODULE__])
-  end
-  
-  def init([npeople]) do
-    children = for id <- 1 .. npeople, do: {Person, [id]}
-    Supervisor.init(children, strategy: :one_for_all)
+  def get_lots(pid) do
+    GenServer.call(pid, :get_lots)
   end
 
-  def produce_tick(caller) do
-    for {_, pid, _, _} <- Supervisor.which_children(__MODULE__), do: send(pid, {:tick_produce, caller})
-    for {id, _, _, _} <- Supervisor.which_children(__MODULE__), do: id
+  def get_lots_of_class(pid, class) do
+    products = Application.get_env(:eco, :products)
+    lots = get_lots(pid)
+    lotList = for {id, lot} <- lots, products[lot.product_id][:class] == class, do: {id, lot}
+    List.foldl(lotList, %{}, fn({id, lot}, acc) -> Map.put(acc, id, lot) end)
   end
 
-  def consume_tick(caller) do
-    for {_, pid, _, _} <- Supervisor.which_children(__MODULE__), do: send(pid, {:tick_consume, caller})
-    for {id, _, _, _} <- Supervisor.which_children(__MODULE__), do: id
-  end
-
-  def consume() do
-    for {_, pid, _, _} <- Supervisor.which_children(__MODULE__), do: send(pid, :consume)
-  end
-
-  def child_spec(nPeople) do
-    %{
-      id: __MODULE__,
-      restart: :permanent,
-      shutdown: 5000,
-      start: {__MODULE__, :start_link, [nPeople]},
-      type: :supervisor
-    }
-  end
 end
 

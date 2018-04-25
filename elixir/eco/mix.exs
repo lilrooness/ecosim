@@ -14,8 +14,7 @@ defmodule Eco.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      mod: {Eco, []},
-      extra_applications: [:logger]
+      extra_applications: [:logger, :ex_unit]
     ]
   end
 
