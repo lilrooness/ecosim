@@ -28,10 +28,6 @@ defmodule Person do
     {:noreply, newState}
   end
 
-  def handle_info({:sold, _info}, state) do
-    {:noreply, state}
-  end
-
   def handle_info({:won, info}, state) do
     productId = info[:product_id]
     amount = info[:amount]

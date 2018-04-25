@@ -40,15 +40,16 @@ defmodule SMarket do
   end
 
   def clear_asks([], _) do
-
+    :ok
   end
 
   def clear_asks([ask | rest], bids) do
     shuffledBids = Enum.shuffle bids[ask[:ask_id]]
-    sold = clear_bids(bids, ask, 0)
+    sold = clear_bids(shuffledBids, ask, 0)
     send ask.seller_pid, {:sold, [product_id: ask.productId,
                                   amount: sold,
 				  net_gain: sold*ask.unit_price]}
+    clear_asks(rest, bids)
   end
 
   def clear_bids([], _, sold) do
@@ -69,7 +70,7 @@ defmodule SMarket do
     clear_bids(rest, %{ask | :amount => newAmount}, sold + amountSold)
   end
 
-  def clear_bids(bids, _, sold) do
+  def clear_bids(_, _, sold) do
     sold
   end
 
