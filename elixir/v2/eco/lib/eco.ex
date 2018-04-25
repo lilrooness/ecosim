@@ -22,7 +22,8 @@ defmodule Market do
       :product_id => productId,
       :amount => amount,
       :seller_pid => sellerPid,
-      :bids => [%{:price => basePrice, :amount => 1, :bidder_pid => sellerPid}]
+      :base_price => basePrice,
+      :bids => []
     }
     {:reply, {:ok, lotNumber}, %{state | :lots => Map.put(state.lots, lotNumber, lot)}}
   end
@@ -124,6 +125,13 @@ defmodule Market do
 
   def get_lots(pid) do
     GenServer.call(pid, :get_lots)
+  end
+
+  def get_lots_of_class(pid, class) do
+    products = Application.get_env(:eco, :products)
+    lots = get_lots(pid)
+    lotList = for {id, lot} <- lots, products[lot.product_id][:class] == class, do: {id, lot}
+    List.foldl(lotList, %{}, fn({id, lot}, acc) -> Map.put(acc, id, lot) end)
   end
 
 end
