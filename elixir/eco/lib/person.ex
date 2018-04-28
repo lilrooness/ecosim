@@ -7,7 +7,7 @@ defmodule Person do
 
   def init([id]) do
     products = for {id, _} <- Application.get_env(:eco, :products), do: id
-    inventory = List.foldl(products, %{}, fn(elem, acc) -> 
+    inventory = List.foldl(products, %{}, fn(elem, acc) ->
       Map.put(acc, elem, 0)
     end)
     {:ok, %{
@@ -24,17 +24,19 @@ defmodule Person do
 
   def handle_info(:tick, state) do
     products = Application.get_env(:eco, :products)
-    newState = produce(state, products) |> auction |> consume
+    newState = consume(state) |> produce(products) |> auction
     {:noreply, newState}
   end
 
   def handle_info({:won, info}, state) do
     productId = info[:product_id]
     amount = info[:amount]
-    totalPrice = info[:total_price]
     newInventory = %{state.inventory | productId => state.inventory[productId] + amount}
-    {:noreply, %{state | :inventory => newInventory,
-               :funds => state.funds - totalPrice}}
+    {:noreply, %{state | :inventory => newInventory}}
+  end
+
+  def handle_info({:lost, info}, state) do
+    %{state | :funds => state.funds + info.total_spend}
   end
 
   def handle_info({:sold, info}, state) do
@@ -47,19 +49,61 @@ defmodule Person do
   end
 
   def consume(state) do
-    
+    labourNeeded = state.max_labour - state.labour
+    {:ok, foodAsks} = SMarket.get_asks_of_type(SMarket, :food)
+    sortedAsks = Enum.sort(foodAsks, fn(%{:unit_price => ap} = _a, %{:unit_price => bp} = _b) ->
+      ap >= bp
+    end)
+    newState = place_food_bids(sortedAsks, labourNeeded, state)
+    %{newState | :labour => newState.labour + newState.inventory["calories"],
+                 :inventory => %{newState.inventory | "calories" => 0}}
   end
 
   def auction(state) do
-    
+    state
+  end
+
+  def bid(ask, amount, state) do
+    SMarket.bid(SMarket, ask.ask_id, amount, amount * ask.unit_price, self())
+    %{state | :funds => state.funds - (amount * ask.unit_price)}
   end
 
   def produce(state, products) do
-    
+    productId = calculate_best_option(state, products)
+    if can_produce_now(productId, state, products) do
+      produce_product(productId, state, products)
+    else
+      state
+    end
+  end
+
+  def place_food_bids([], _labourNeeded, state) do
+    state
+  end
+
+  def place_food_bids(_asks, _labourNeeded, %{:funds => 0} = state) do
+    state
+  end
+
+  def place_food_bids(_asks, 0, state) do
+    state
+  end
+
+  def place_food_bids([ask | rest], labourNeeded, %{:funds => funds} = state) do
+    maxPurchaseAmount = min(Float.floor(funds / ask.unit_price), labourNeeded)
+    purchaseAmount = min(ask.amount, maxPurchaseAmount)
+    spent = purchaseAmount * ask.unit_price
+    bid(ask, purchaseAmount, state)
+    newState = %{state | :funds => state.funds - spent}
+    place_food_bids(rest, labourNeeded - purchaseAmount, newState)
   end
 
   def produce_product(productId, state, products) do
-    
+    produced = get_production_amount(productId, state.inventory, products, state.labour)
+    labourCost = products[productId][:labour_cost] * produced
+    newProductAmount = state.inventory[productId] + produced
+    newInventory = %{state.inventory | productId => newProductAmount}
+    %{state | :inventory => newInventory, :labour => state.labour - labourCost}
   end
 
   def get_production_amount(productId, inventory, products, labour) do
@@ -67,7 +111,7 @@ defmodule Person do
       Float.floor(labour / products[productId][:labour_cost])
     else
       deps = products[productId][:deps]
-      productionLimits = Enum.map(deps, fn(dep) -> 
+      productionLimits = Enum.map(deps, fn(dep) ->
         inventory[:proplists.get_value(:id, dep)] / :proplists.get_value(:amount, dep)
       end)
       [maxProduceable | _] = Enum.sort(productionLimits)
@@ -133,5 +177,3 @@ defmodule Person do
     end)
   end
 end
-
-
