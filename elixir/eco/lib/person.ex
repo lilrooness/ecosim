@@ -51,7 +51,7 @@ defmodule Person do
   def consume(state) do
     labourNeeded = state.max_labour - state.labour
     {:ok, foodAsks} = SMarket.get_asks_of_type(SMarket, :food)
-    sortedAsks = Enum.sort(foodAsks, fn(%{:unit_price => ap} = _a, %{:unit_price => bp} = _b) ->
+    sortedAsks = Enum.sort(foodAsks, fn({_, %{:unit_price => ap}} = _a, {_, %{:unit_price => bp}} = _b) ->
       ap >= bp
     end)
     newState = place_food_bids(sortedAsks, labourNeeded, state)
@@ -60,11 +60,32 @@ defmodule Person do
   end
 
   def auction(state) do
+    prodIds = for {prodId, _} <- state.inventory, do: prodId
+    auction_inventory(prodIds, state)
+  end
+
+  defp auction_inventory([], state) do
     state
   end
 
-  def bid(ask, amount, state) do
-    SMarket.bid(SMarket, ask.ask_id, amount, amount * ask.unit_price, self())
+  defp auction_inventory([prodId| rest], state) do
+
+    unitPrice = calculate_sell_price(prodId, state)
+
+    if state.inventory[prodId] > 0 do
+      SMarket.ask(SMarket, prodId, unitPrice, state.inventory[prodId], self())
+    end
+
+    newInventory = %{state.inventory | prodId => 0}
+    auction_inventory(rest, %{state | :inventory => newInventory})
+  end
+
+  def calculate_sell_price(_produtId, _state) do
+    1
+  end
+
+  def bid({askId, ask}, amount, state) do
+    SMarket.bid(SMarket, askId, amount, amount * ask.unit_price, self())
     %{state | :funds => state.funds - (amount * ask.unit_price)}
   end
 
@@ -89,11 +110,11 @@ defmodule Person do
     state
   end
 
-  def place_food_bids([ask | rest], labourNeeded, %{:funds => funds} = state) do
+  def place_food_bids([{askId, ask} | rest], labourNeeded, %{:funds => funds} = state) do
     maxPurchaseAmount = min(Float.floor(funds / ask.unit_price), labourNeeded)
     purchaseAmount = min(ask.amount, maxPurchaseAmount)
     spent = purchaseAmount * ask.unit_price
-    bid(ask, purchaseAmount, state)
+    bid({askId, ask}, purchaseAmount, state)
     newState = %{state | :funds => state.funds - spent}
     place_food_bids(rest, labourNeeded - purchaseAmount, newState)
   end

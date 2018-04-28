@@ -5,8 +5,11 @@ defmodule SMarket do
   end
 
   def init([]) do
+    prodIds = (for {prodId, _} <- Application.get_env(:eco, :products), do: prodId)
+    demands = List.foldl(prodIds, %{}, fn(prodId, acc) -> Map.put(acc, prodId, 0) end)
     {:ok, %{
-      :asks => %{}
+      :asks => %{},
+      :demands => demands
     }}
   end
 
@@ -59,11 +62,16 @@ defmodule SMarket do
 
   def get_asks_of_type(marketPid, type) do
     products = Application.get_env(:eco, :products)
-    {:ok, asks} = GenServer.call(marketPid, :get_asks);
-    {:ok, (for ask <- asks, products[asks.product_id].class == type, do: ask)}
+    {:ok, askMaps} = GenServer.call(marketPid, :get_asks)
+    asks = for {askId, ask} <- askMaps, do: {askId, ask}
+    {:ok, (for {askId, ask} <- asks, products[ask.product_id].class == type, do: {askId, ask})}
   end
 
   def bid(marketPid, askId, amount, spend, buyerPid) do
     GenServer.cast(marketPid, {:bid, askId, amount, spend, buyerPid})
+  end
+
+  def ask(marketPid, productId, unitPrice, amount, sellerPid) do
+    GenServer.call(marketPid, {:ask, productId, unitPrice, amount, sellerPid})
   end
 end
