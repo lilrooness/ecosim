@@ -22,3 +22,5 @@ erl_crash.dump
 # Ignore package tarball (built via "mix hex.build").
 eco-*.tar
 
+# Ignore elixir dialyzer plts generated from VSCode
+.elixir_ls

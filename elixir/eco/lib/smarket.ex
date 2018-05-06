@@ -27,6 +27,10 @@ defmodule SMarket do
     }
   end
 
+  def handle_call({:get_ask, askId}, _from, state) do
+    {:reply, {:ok, state.asks[askId], state}}
+  end
+
   def handle_call(:get_asks, _from, state) do
     {:reply, {:ok, state.asks}, state}
   end
@@ -37,6 +41,11 @@ defmodule SMarket do
     {:noreply, %{state | :asks => asks}}
   end
 
+  def handle_cast({:demand, productId, quantity}, state) do
+    newDemand = %{state.demand | productId  => state.demand[productId] + quantity}
+    {:noreply, %{state | :demand => newDemand}}
+  end
+
   def handle_bid(_askId, nil, _amount, buyerPid, spend, state) do
     # TODO: Figure out how to return money to unsuccessful buyer
     send(buyerPid, {:lost, [total_price: spend]})
@@ -44,6 +53,7 @@ defmodule SMarket do
   end
 
   def handle_bid(askId, ask, amount, buyerPid, _spend, state) do
+    demand(self(), ask.product_id, amount)
     sold = if ask.amount >= amount do
       send(buyerPid, {:won, [product_id: ask.product_id, amount: amount, total_price: ask.unit_price * amount]})
       send(ask.seller_pid, {:sold, [product_id: ask.product_id, amount: amount, net_gain: amount*ask.unit_price]})
@@ -73,5 +83,14 @@ defmodule SMarket do
 
   def ask(marketPid, productId, unitPrice, amount, sellerPid) do
     GenServer.call(marketPid, {:ask, productId, unitPrice, amount, sellerPid})
+  end
+
+  def demand(marketPid, productId, quantity) do
+    GenServer.cast(marketPid, {:demand, productId, quantity})
+    :ok
+  end
+
+  def get_ask(marketPid, askId) do
+    GenServer.call(marketPid, {:get_ask, askId})
   end
 end
