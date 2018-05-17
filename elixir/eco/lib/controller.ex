@@ -52,4 +52,9 @@ defmodule Controller do
     {:noreply, %{state | :sellables => newSellables,
                :funds => state.funds + netGain}}
   end
+
+  def bid(pid, askId, amount) do
+    GenServer.cast(pid, {:bid, askId, amount})
+  end
+
 end

@@ -3,7 +3,11 @@ defmodule Eco do
 
   def start(_type, _args) do
     dispatch = :cowboy_router.compile([
-     {:_, [{"/ws", EcoWebsocketHandler, []}]}
+     {:_, [
+       {"/ws", EcoWebsocketHandler, []},
+       {"/static/[...]", :cowboy_static, {:priv_dir, :eco, ""}},
+       {"/rest/[...]", EcoRestHandler, []}
+      ]}
     ])
 
     SMarket.start_link
@@ -15,6 +19,16 @@ defmodule Eco do
     :ok
   end
 
+end
+
+defmodule EcoRestHandler do
+  def init(req, state) do
+    {:ok, asks} = SMarket.get_asks_of_type(SMarket, :food)
+    :cowboy_req.reply(200, %{
+      "content-type" => "application/json"
+    }, Eljiffy.encode(asks), req)
+    {:ok, req, state}
+  end
 end
 
 defmodule EcoWebsocketHandler do

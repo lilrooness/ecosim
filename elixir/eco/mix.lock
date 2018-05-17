@@ -1,6 +1,8 @@
 %{
   "cowboy": {:hex, :cowboy, "2.3.0", "268429481d6f41ad5564ade4a2439c284b569083fca0d19078ad4f56b4624724", [:rebar3], [{:cowlib, "~> 2.2.1", [hex: :cowlib, repo: "hexpm", optional: false]}, {:ranch, "~> 1.4.0", [hex: :ranch, repo: "hexpm", optional: false]}], "hexpm"},
   "cowlib": {:hex, :cowlib, "2.2.1", "1afa5b233cee8f642c153ec6f1dc48db0dd9a43e2114bc8b43e9d59636f6ae1f", [:rebar3], [], "hexpm"},
+  "eljiffy": {:hex, :eljiffy, "1.0.0", "16e744407ae10d2c9e18a6f2111d353d6704dcb4cf0dada9f9b39f56c056eab7", [:mix], [{:jiffy, "~> 0.15.0", [hex: :jiffy, repo: "hexpm", optional: false]}], "hexpm"},
+  "jiffy": {:hex, :jiffy, "0.15.2", "de266c390111fd4ea28b9302f0bc3d7472468f3b8e0aceabfbefa26d08cd73b7", [:rebar3], [], "hexpm"},
   "ranch": {:hex, :ranch, "1.4.0", "10272f95da79340fa7e8774ba7930b901713d272905d0012b06ca6d994f8826b", [:rebar3], [], "hexpm"},
   "uuid": {:hex, :uuid, "1.1.8", "e22fc04499de0de3ed1116b770c7737779f226ceefa0badb3592e64d5cfb4eb9", [:mix], [], "hexpm"},
 }
