@@ -11,7 +11,8 @@ defmodule Eco do
     ])
 
     SMarket.start_link
-
+    TurnMarket.start_link
+    
     :cowboy.start_clear(:ws_listener, [port: 8080], %{:env => %{:dispatch => dispatch}})
   end
 
