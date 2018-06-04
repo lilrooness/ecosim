@@ -31,20 +31,25 @@ use Mix.Config
 
 config(:eco, [
   {:products, %{
-    # "chicken" => %{
-    #   :labour_cost => 4,
-    #   :class => :food,
-    #   :raw => false,
-    #   :food_value => 20,
-    #   :deps => [
-    #     [id: "bowl of snot", amount: 2]
-    #   ]
-    # },
+    "chicken" => %{
+      :labour_cost => 4,
+      :class => :food,
+      :raw => false,
+      :food_value => 20,
+      :deps => [
+        [id: "bowl of snot", amount: 2]
+      ]
+    },
     "calories" => %{
       :labour_cost => 0.1,
       :class => :food,
       :raw => true,
       :food_value => 1
+    },
+    "coffee" => %{
+      :labour_cost => 5,
+      :class => :base,
+      :raw => true
     },
     1 => %{
       :labour_cost => 15,
