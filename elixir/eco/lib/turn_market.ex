@@ -24,7 +24,8 @@ defmodule TurnMarket do
   end
 
   def handle_call({:bid, %Bid{} = bid}, from, state) do
-    newState = %{state | :bids =>[bid | state.bids]}
+    bidWithFrom = Map.put(bid, :from, from)
+    newState = %{state | :bids =>[bidWithFrom | state.bids]}
     {:reply, newState}
   end
 
@@ -36,6 +37,18 @@ defmodule TurnMarket do
     newState = Enum.shuffle state.bids
     |>Enum.reduce(state, &resolve_bid/2)
     {:noreply, newState}
+  end
+
+  def handle_info(_msg, state) do
+    {:noreply, state}
+  end
+
+  def code_change(_oldVsn, state, _extra) do
+    {:ok, state}
+  end
+
+  def terminate(_reason, _state) do
+    :ok
   end
 
   def resolve_bid(%Bid{} = bid, state) do
