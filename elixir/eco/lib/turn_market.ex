@@ -12,21 +12,40 @@ defmodule TurnMarket do
     GenServer.start_link(__MODULE__, [], [name: __MODULE__])
   end
 
+  # API
+  def get_past_turns() do
+    GenServer.call(TurnMarket, :get_turns)
+  end
+
+  def ask(marketPid, prodId, amount, ppu) do
+    GenServer.call(marketPid, {:ask, prodId, amount, ppu})
+  end
+
+  def bid(marketPid, %Bid{} = bid) do
+    GenServer.call(marketPid, {:bid, bid})
+  end
+  
+  # CALLBACKS
   def init([]) do
     {:ok, %TurnMarket{}}
   end
 
-  def handle_call({:ask, prodId, amount, ppu}, from, state) do
-    asks = AskList.add(state.asks, prodId, from, amount, ppu)
+  def handle_call({:ask, prodId, amount, ppu}, {fromPid, _}, state) do
+    asks = AskList.add(state.asks, prodId, fromPid, amount, ppu)
     newState = %{state | :asks => asks}
     id = AskList.get_last_id(asks)
     {:reply, id, newState}
   end
 
-  def handle_call({:bid, %Bid{} = bid}, from, state) do
-    bidWithFrom = Map.put(bid, :from, from)
+  def handle_call({:bid, %Bid{} = bid}, {fromPid, _}, state) do
+    bidWithFrom = Map.put(bid, :from, fromPid)
     newState = %{state | :bids =>[bidWithFrom | state.bids]}
-    {:reply, newState}
+    {:reply, :ok, newState}
+  end
+
+  def handle_call(:get_asks, _from, state) do
+    askList = AskList.list_asks(state.asks)
+    {:reply, askList, state}
   end
 
   def handle_call(:get_turns, _from, state) do
@@ -34,8 +53,8 @@ defmodule TurnMarket do
   end
   
   def handle_cast(:settle, state) do
-    newState = Enum.shuffle state.bids
-    |>Enum.reduce(state, &resolve_bid/2)
+    newState = Enum.shuffle(state.bids)
+    |> Enum.reduce(state, &resolve_bid/2)
     {:noreply, newState}
   end
 
@@ -51,7 +70,8 @@ defmodule TurnMarket do
     :ok
   end
 
-  def resolve_bid(%Bid{} = bid, state) do
+  # UTILS
+  defp resolve_bid(%Bid{} = bid, state) do
     {:ok, ask} = AskList.fetch(state.asks, bid.ask_id)
     buyAmount = if bid.amount >= ask.amount do
       ask.amount
@@ -61,12 +81,8 @@ defmodule TurnMarket do
 
     send(ask.from, {:sold, ask.product_id, buyAmount, ask.ppu})
     send(bid.from, {:won, ask.product_id, buyAmount, ask.ppu})
-
-    newAsks = put_in(state.asks, [bid.ask_id, :amount], buyAmount)
+    remaining = ask.amount - buyAmount
+    newAsks = put_in(state.asks, [bid.ask_id, :amount], remaining)
     %{state | :asks => newAsks}
-  end
-  
-  def get_past_turns() do
-    GenServer.call(TurnMarket, :get_turns)
   end
 end

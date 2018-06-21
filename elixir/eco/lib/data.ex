@@ -92,6 +92,10 @@ defmodule AskList do
   def get_last_id(%AskList{id: id}) do
     id
   end
+
+  def list_asks(%AskList{asks: asks}) do
+    for {_id, ask} <- asks, into: [], do: ask
+  end
   
   def add(%AskList{} = askList, %Ask{} = ask) do
     newId = askList.id + 1
@@ -100,7 +104,7 @@ defmodule AskList do
     %{askList | :id => newId, :asks => asks}
   end
 
-    def add(%AskList{} = askList, productId, from, amount, ppu) do
+  def add(%AskList{} = askList, productId, from, amount, ppu) do
     ask = %Ask{
       product_id: productId,
       from: from,
