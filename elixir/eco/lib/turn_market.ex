@@ -1,8 +1,9 @@
 defmodule TurnMarket do
-
+  @behaviour GenServer
+  
   defstruct(
     turn: 0,
-    asks: [],
+    asks: %AskList{},
     bids: [],
     pastTurns: []
   )
@@ -15,16 +16,15 @@ defmodule TurnMarket do
     {:ok, %TurnMarket{}}
   end
 
-  def handle_call({:ask, productId, amount, ppu}, from, state) do
-    askId = UUID.uuid1()
-    newState = %{state | :asks =>
-      state.asks ++ [{askId, {productId, from, amount, ppu}}]}
-    {:reply, askId, newState}
+  def handle_call({:ask, prodId, amount, ppu}, from, state) do
+    asks = AskList.add(state.asks, prodId, from, amount, ppu)
+    newState = %{state | :asks => asks}
+    id = AskList.get_last_id(asks)
+    {:reply, id, newState}
   end
 
-  def handle_call({:bid, askId, amount}, from, state) do
-    newState = %{state | :bids =>
-      state.bids ++ [{askId, {amount, from}}]}
+  def handle_call({:bid, %Bid{} = bid}, from, state) do
+    newState = %{state | :bids =>[bid | state.bids]}
     {:reply, newState}
   end
 
@@ -33,46 +33,27 @@ defmodule TurnMarket do
   end
   
   def handle_cast(:settle, state) do
-    bids = Enum.shuffle(state.bids)
-    foldFun = fn(elem, acc) ->
-      {:ok, newAcc} = resolve_bid(elem, acc)
-      newAcc
-    end
-
-    newAsks = List.foldl(bids, state.asks, foldFun)
-
-    saveTurn = %TurnMarket{
-      :turn => state.turn,
-      :asks => newAsks,
-      :bids => state.bids
-    }
-    
-    newTurns = [saveTurn | state.turns]
-    {:noreply, %{state |
-		 :turn => state.turn + 1,
-		 :asks => [],
-		 :bids => [],
-		 :pastTurns => newTurns}}
+    newState = Enum.shuffle state.bids
+    |>Enum.reduce(state, &resolve_bid/2)
+    {:noreply, newState}
   end
 
-  def resolve_bid({askId, {amount, buyer}}, asks) do
-    {productId, seller, avail, ppu} = :proplists.get_value(askId, asks)
-    saleAmount = if amount <= avail do
-      amount
+  def resolve_bid(%Bid{} = bid, state) do
+    {:ok, ask} = AskList.fetch(state.asks, bid.ask_id)
+    buyAmount = if bid.amount >= ask.amount do
+      ask.amount
     else
-      avail
+      bid.amount
     end
 
-    send(buyer, {:won, productId, saleAmount, ppu})
-    send(seller, {:sold, productId, saleAmount, ppu})
+    send(ask.from, {:sold, ask.product_id, buyAmount, ask.ppu})
+    send(bid.from, {:won, ask.product_id, buyAmount, ask.ppu})
 
-    newAsks = List.keydelete(asks, askId, 1) ++ [{askId, {productId, seller, avail - saleAmount, ppu}}]
-    {:ok, newAsks}
+    newAsks = put_in(state.asks, [bid.ask_id, :amount], buyAmount)
+    %{state | :asks => newAsks}
   end
-
+  
   def get_past_turns() do
     GenServer.call(TurnMarket, :get_turns)
   end
-  
-  
 end

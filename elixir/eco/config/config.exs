@@ -30,6 +30,7 @@ use Mix.Config
 #     import_config "#{Mix.env}.exs"
 
 config(:eco, [
+  {:max_labour, 1000},
   {:products, %{
     "chicken" => %{
       :labour_cost => 4,
