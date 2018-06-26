@@ -5,6 +5,7 @@ defmodule Bot do
     prods: [],
     money: 0,
     inventory: %{},
+    created: %{},
     labour: 0,
     turn: 0
   )
@@ -45,16 +46,27 @@ defmodule Bot do
 		 :inventory => newInventory}}
   end
   
-  def handle_info({:sold, _productId, amount, ppu}, state) do
+  def handle_info({:sold, productId, amount, ppu}, state) do
     money = state.money + (amount * ppu)
+    newAmount = state.created[productId] - amount
+    newCreated = %{state.created | productId => newAmount}
     {:noreply, %{state |
-		 :money => money}}
+		 :money => money,
+		 :created => newCreated}}
   end
 
-  def handle_info(:tick, state) do
+  def handle_info(:produce, state) do
     prodId = get_best_production_option(state)
     newState = create(prodId, state)
+    submit_asks(TurnMarket, newState)
     {:noreply, newState}
+  end
+
+  def submit_asks(marketPid, state) do
+    state.created
+    |> Enum.each(fn({prodId, amount}) ->
+      TurnMarket.ask(marketPid, prodId, amount, :rand.uniform*10)
+    end)
   end
   
   #generate prefences adding up to 1
@@ -70,47 +82,16 @@ defmodule Bot do
       end)
   end
 
-  def get_best_production_option(%Bot{turn: 0} = state) do
-    state.prods
-  end
-
   def get_best_production_option(state) do
-    products = Application.get_env(:eco, :products)
-
-    creatables = for {id, product} <- products,
-    (can_create(product, state) > 0),
-      do: {id, product}
-
-    [prevTurn | rest] = TurnMarket.get_past_turns()
-
-    # group amounts: %{prodId => [amount, . . .]}
-    groupedAsks = Enum.group_by(prevTurn.asks,
-      fn({_, {prodId, _, _}}) -> prodId end,
-      fn({_, {_, _, amount, _}}) -> amount end)
-
-    # sum amounts of products left: [prodId: spare, . . .]
-    summedGroupedAsks = for {prodId, amounts} <- groupedAsks,
-      do: {prodId, Enum.sum(amounts)}
-
-    # sorted product excess. Low to high
-    productExcesses = Enum.sort(summedGroupedAsks,
-      fn({_, amount1}, {_, amount2}) ->
-	amount1 > amount2
-      end)
-
-    creatable = for {prodId, _} <- productExcesses,
-      do: {prodId, can_create(get_product_by_id(prodId), state)}
-
-    
-    case length(creatable) do
-      0 ->
-	nil
-      _ ->
-	[{prodId, _} | _] = creatable
-	prodId
-    end
+    {id, _amount} = Application.get_env(:eco, :products)
+    |> Enum.map(fn({id, prod}) ->
+      {id, can_create(prod, state)}
+    end)
+    |> Enum.sort(fn({_, v1}, {_, v2}) ->
+      v1 > v2
+    end) |> hd
+    id
   end
-  
   
   def can_create(product, state) do
     case product.raw do
@@ -127,10 +108,10 @@ defmodule Bot do
     if product.raw do
       amount = :math.floor(state.labour / product.labour_cost)
       labour_cost = amount * product.labour_cost
+      newAmount = amount + Map.get(state.created, productId, 0)
       %{state |
 	:labour => state.labour - labour_cost,
-	:inventory => %{state.inventory |
-			productId => amount}}
+	:created => Map.put(state.created, productId, newAmount)}
     else
       state
     end
@@ -139,6 +120,5 @@ defmodule Bot do
   
   def get_product_by_id(prodId) do
     (Application.get_env(:eco, :products))[prodId]
-  end 
-  
+  end
 end
