@@ -23,7 +23,7 @@ end
 
 defmodule EcoRestHandler do
   def init(req, state) do
-    asks = TurnMarket.get_asks(SMarket, :food)
+    asks = TurnMarket.get_asks(SMarket)
     :cowboy_req.reply(200, %{
       "content-type" => "application/json"
     }, Eljiffy.encode(asks), req)

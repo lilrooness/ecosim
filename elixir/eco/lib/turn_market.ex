@@ -28,6 +28,10 @@ defmodule TurnMarket do
   def get_asks(marketPid) do
     GenServer.call(marketPid, :get_asks)
   end
+
+  def get_asks_as_list(marketPid) do
+    GenServer.call(marketPid, :list_asks)
+  end
   
   # CALLBACKS
   def init([]) do

@@ -88,7 +88,7 @@ defmodule Controller do
   defp can_bid(askId, state) do
     lookup = TurnMarket.get_asks(TurnMarket)
       |> AskList.get(askId, nil)
-      
+
     case lookup do
       nil ->
         {:error, :invalid_ask_id}

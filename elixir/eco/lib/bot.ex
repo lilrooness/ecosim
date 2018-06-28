@@ -40,18 +40,17 @@ defmodule Bot do
   def handle_info({:won, productId, amount, ppu}, state) do
     paid = ppu * amount
     newAmount = state.inventory[productId] + amount
-    newInventory = %{state.inventory | :productId => newAmount}
+    newInventory = %{state.inventory | productId => newAmount}
     {:noreply, %{state |
 		 :money => state.money - paid,
 		 :inventory => newInventory}}
   end
   
   def handle_info({:sold, productId, amount, ppu}, state) do
-    money = state.money + (amount * ppu)
     newAmount = state.created[productId] - amount
     newCreated = %{state.created | productId => newAmount}
     {:noreply, %{state |
-		 :money => money,
+		 :money => state.money + (amount * ppu),
 		 :created => newCreated}}
   end
 
@@ -62,13 +61,54 @@ defmodule Bot do
     {:noreply, newState}
   end
 
+  def handle_info(:bid, state) do
+    products = Application.get_env(:eco, :products)
+    maxLabour = Application.get_env(:eco, :max_labour)
+    labourNeeded = maxLabour - state.labour
+    
+    TurnMarket.get_asks_as_list(TurnMarket)
+    |> Enum.filter(fn(ask) ->
+      IO.puts("class:")
+      IO.puts(products[ask.product_id].class)
+      products[ask.product_id].class === :food
+    end)
+    |> Enum.sort(fn(ask1, ask2) ->
+      ask1.ppu < ask2.ppu
+    end) |> place_food_bids(labourNeeded, state.money, TurnMarket)
+
+    {:noreply, state}
+  end
+
+  def place_food_bids([ask | rest], labourNeeded, money, marketPid) when labourNeeded > 0 and money > 0 do
+    foodValue = Map.get(Application.get_env(:eco, :products), ask.product_id)[:food_value]
+    max = min(ask.amount, trunc(money / ask.ppu))
+    IO.puts(max)
+    if max > 0 do
+      spend = max * ask.ppu
+      bid = Bid.new(ask.id, max, self())
+      IO.puts("bidding!")
+      TurnMarket.bid(TurnMarket, bid)
+      recouped = foodValue * max
+      place_food_bids(rest, labourNeeded - recouped, money - spend, marketPid)
+    else
+      :ok
+    end
+  end
+
+  def place_food_bids(_, _, _, _) do
+    :ok
+  end
+
   def submit_asks(marketPid, state) do
     state.created
-    |> Enum.each(fn({prodId, amount}) ->
-      TurnMarket.ask(marketPid, prodId, amount, :rand.uniform*10)
+    |> Enum.each(fn
+        {_, 0} ->
+          :ok
+        {prodId, amount} ->
+          TurnMarket.ask(marketPid, prodId, amount, :rand.uniform*10)
     end)
   end
-  
+
   #generate prefences adding up to 1
   def generate_preferences(prodIds) do
     nums = for _ <- 1..length(prodIds), do: :rand.uniform
@@ -96,9 +136,9 @@ defmodule Bot do
   def can_create(product, state) do
     case product.raw do
       true ->
-	:math.floor(state.labour / product.labour_cost)
+	       :math.floor(state.labour / product.labour_cost)
       false ->
-	0.0
+	       0.0
     end
   end
 
