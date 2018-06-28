@@ -53,6 +53,23 @@ defmodule Controller do
     }}
   end
 
+  def handle_info({:won, productId, amount, ppu}, state) do
+    paid = ppu * amount
+    newAmount = state.inventory[productId] + amount
+    newInventory = %{state.inventory | productId => newAmount}
+    {:noreply, %{state |
+     :money => state.money - paid,
+     :inventory => newInventory}}
+  end
+  
+  def handle_info({:sold, productId, amount, ppu}, state) do
+    newAmount = state.created[productId] - amount
+    newCreated = %{state.created | productId => newAmount}
+    {:noreply, %{state |
+     :money => state.money + (amount * ppu),
+     :created => newCreated}}
+  end
+
   def handle_call({:bid, askId, amount}, _from, state) do
     response = if can_bid(askId, state) >= amount do
       bid = Bid.new(askId, amount, self())
