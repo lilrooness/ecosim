@@ -13,8 +13,8 @@ defmodule TurnMarket do
   end
 
   # API
-  def get_past_turns() do
-    GenServer.call(TurnMarket, :get_turns)
+  def get_past_turns(marketPid) do
+    GenServer.call(marketPid, :get_turns)
   end
 
   def ask(marketPid, prodId, amount, ppu) do
@@ -23,6 +23,10 @@ defmodule TurnMarket do
 
   def bid(marketPid, %Bid{} = bid) do
     GenServer.call(marketPid, {:bid, bid})
+  end
+
+  def get_asks(marketPid) do
+    GenServer.call(marketPid, :get_asks)
   end
   
   # CALLBACKS
@@ -43,9 +47,13 @@ defmodule TurnMarket do
     {:reply, :ok, newState}
   end
 
-  def handle_call(:get_asks, _from, state) do
+  def handle_call(:list_asks, _from, state) do
     askList = AskList.list_asks(state.asks)
     {:reply, askList, state}
+  end
+  
+  def handle_call(:get_asks, _from, state) do
+    {:reply, state.asks, state}
   end
 
   def handle_call(:get_turns, _from, state) do

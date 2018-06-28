@@ -1,60 +1,99 @@
 defmodule Controller do
   use GenServer
 
+  defstruct(
+    id: 0,
+    prods: [],
+    money: 0,
+    inventory: %{},
+    created: %{},
+    labour: 0
+  )
+
   def start_link(id) do
     GenServer.start(__MODULE__, [id], [])
   end
 
+  # API
+
+  def bid(controller, askId, amount) do
+    GenServer.call(controller, {:bid, askId, amount})
+  end
+
+  def ask(controller, prodId, amount, ppu) do
+    GenServer.call(controller, {:ask, prodId, amount, ppu})
+  end
+
+  def get_state(controller) do
+    GenServer.call(controller, :get_state)
+  end
+
+  # CALLBACKS
+
   def init([id]) do
-    products = for {id, _} <- Application.get_env(:eco, :products), do: id
-    sellables = List.foldl(products, %{}, fn(elem, acc) ->
+    # products = for {id, _} <- Application.get_env(:eco, :products), do: id
+    prodIds = for {id, _} <- Application.get_env(:eco, :products), do: id
+    # prepare inventory
+    inventory = List.foldl(prodIds, %{}, fn(elem, acc) ->
       Map.put(acc, elem, 0)
     end)
-    consumables = List.foldl(products, %{}, fn(elem, acc) ->
-      Map.put(acc, elem, 0)
+
+    prods = List.foldl(prodIds, %{}, fn(elem, acc) ->
+      Map.put(acc, elem, :rand.uniform)
     end)
-    {:ok, %{
-      :funds => 1000,
-      :max_labour => 1000,
-      :labour => 1000,
+
+    maxLabour = Application.get_env(:eco, :max_labour)
+
+    {:ok, %Controller{
       :id => id,
-      :preferences => Person.generate_preferences(products),
-      :productivities => Person.generate_productivities(products),
-      :sellables => sellables,
-      :consumables => consumables,
-      :product_path => false
+      :prods => prods,
+      :inventory => inventory,
+      :labour => maxLabour,
+      :money => 1000
     }}
   end
 
-  def handle_cast({:bid, askId, amount}, state) do
-    ask = SMarket.get_ask(SMarket, askId)
-    spend = ask.unit_price * amount
-    SMarket.bid(SMarket, askId, amount, spend, self())
-    {:noreply, %{state | :funds => state.funds - spend}}
+  def handle_call({:bid, askId, amount}, _from, state) do
+    response = if can_bid(askId, state) >= amount do
+      bid = Bid.new(askId, amount, self())
+      TurnMarket.bid(TurnMarket, bid)
+      :ok
+    else
+      {:error, {:insufficient_funds, state.money}}
+    end
+
+    {:reply, response, state}
   end
 
-  def handle_info({:won, info}, state) do
-    productId = info[:product_id]
-    amount = info[:amount]
-    newConsumables = %{state.consumables | productId => state.consumables[productId] + amount}
-    {:noreply, %{state | :consumables => newConsumables}}
+  def handle_call({:ask, prodId, amount, ppu}, _from, state) do
+    forSale = can_sell(prodId, state)
+    response = if forSale >= amount do
+      askId = TurnMarket.ask(TurnMarket, prodId, amount, ppu)
+      {:ok, askId}
+    else
+      {:error, {:insufficient_product, forSale}}
+    end
+
+    {:reply, response, state}
   end
 
-  def handle_info({:lost, info}, state) do
-    %{state | :funds => state.funds + info.total_spend}
+  def handle_call(:get_state, _from, state) do
+    {:reply, state, state}
   end
 
-  def handle_info({:sold, info}, state) do
-    productId = info[:product_id]
-    amount = info[:amount]
-    netGain = info[:net_gain]
-    newSellables = %{state.sellables | productId => state.sellables[productId] - amount}
-    {:noreply, %{state | :sellables => newSellables,
-               :funds => state.funds + netGain}}
+  defp can_sell(productId, state) do
+    Map.get(state.created, productId, 0)
   end
 
-  def bid(pid, askId, amount) do
-    GenServer.cast(pid, {:bid, askId, amount})
+  defp can_bid(askId, state) do
+    lookup = TurnMarket.get_asks(TurnMarket)
+      |> AskList.get(askId, nil)
+      
+    case lookup do
+      nil ->
+        {:error, :invalid_ask_id}
+      ask ->
+        trunc(state.money / ask.ppu)
+    end
   end
-
 end
