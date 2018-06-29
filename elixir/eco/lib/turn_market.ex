@@ -67,7 +67,7 @@ defmodule TurnMarket do
   def handle_cast(:settle, state) do
     newState = Enum.shuffle(state.bids)
     |> Enum.reduce(state, &resolve_bid/2)
-    {:noreply, newState}
+    {:noreply, %{newState | :bids => []}}
   end
 
   def handle_info(_msg, state) do
