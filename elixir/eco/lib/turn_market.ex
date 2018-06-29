@@ -29,8 +29,16 @@ defmodule TurnMarket do
     GenServer.call(marketPid, :get_asks)
   end
 
+  def get_bids(marketPid) do
+    GenServer.call(marketPid, :get_bids)
+  end
+
   def get_asks_as_list(marketPid) do
     GenServer.call(marketPid, :list_asks)
+  end
+
+  def settle(marketPid) do
+    GenServer.cast(marketPid, :settle)
   end
   
   # CALLBACKS
@@ -58,6 +66,10 @@ defmodule TurnMarket do
   
   def handle_call(:get_asks, _from, state) do
     {:reply, state.asks, state}
+  end
+
+  def handle_call(:get_bids, _from, state) do
+    {:reply, state.bids, state}
   end
 
   def handle_call(:get_turns, _from, state) do
