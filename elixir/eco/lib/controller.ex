@@ -70,6 +70,10 @@ defmodule Controller do
      :created => newCreated}}
   end
 
+  def handle_info(_msg, state) do
+    {:noreply, state}
+  end
+
   def handle_call({:bid, askId, amount}, _from, state) do
     response = if can_bid(askId, state) >= amount do
       bid = Bid.new(askId, amount, self())
@@ -96,6 +100,14 @@ defmodule Controller do
 
   def handle_call(:get_state, _from, state) do
     {:reply, state, state}
+  end
+
+  def code_change(_oldVsn, state, _extra) do
+    {:ok, state}
+  end
+
+  def terminate(_reason, _state) do
+    :ok
   end
 
   defp can_sell(productId, state) do
