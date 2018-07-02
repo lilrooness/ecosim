@@ -12,16 +12,41 @@ defmodule Eco do
 end
 
 defmodule ControllerPlug do
-  import Plug.Conn
+  use Plug.Router
+
+  plug :match
+  plug :dispatch
 
   def init(opts) do
     opts
   end
 
-  def call(conn, _opts) do
+  get "/get_asks" do
+    conn
+    |> get_asks
+    |> put_resp_content_type("application/json")
+    |> respond(:get_asks)
+  end
+
+  match _ do
     conn
     |> put_resp_content_type("text/plain")
-    |> send_resp(200, "Hello World")
+    |> Plug.Conn.send_resp(400, "Not Implemented")
+  end
+
+  defp get_asks(conn) do
+    asks = TurnMarket.get_asks_as_list(TurnMarket)
+    |> Enum.map(fn(ask) ->
+      ask 
+      |> Map.from_struct
+      |> Map.delete(:from) 
+    end)
+    |> Eljiffy.encode
+    Plug.Conn.assign(conn, :asks, asks)
+  end
+
+  defp respond(conn, :get_asks) do
+    Plug.Conn.send_resp(conn, 200, conn.assigns[:asks])
   end
 
 end
