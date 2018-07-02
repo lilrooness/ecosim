@@ -3,6 +3,7 @@ defmodule Eco do
 
   def start(_type, _args) do
     TurnMarket.start_link
+    ControllerSup.start_link
     {:ok, _} = Plug.Adapters.Cowboy.http ControllerPlug, []
   end
 
@@ -15,6 +16,7 @@ defmodule ControllerPlug do
   use Plug.Router
 
   plug :match
+  plug :cookie
   plug :dispatch
 
   def init(opts) do
@@ -49,4 +51,22 @@ defmodule ControllerPlug do
     Plug.Conn.send_resp(conn, 200, conn.assigns[:asks])
   end
 
+  # plugs
+
+  def cookie(conn, _opts) do
+    conn
+    |> Plug.Conn.fetch_cookies
+    |> ensure_cookie
+  end
+
+  defp ensure_cookie(conn) do
+    case Map.get(conn.cookies, "session", nil) do
+      nil ->
+	# start new controller process
+	ControllerSup.new_controller 1
+	Plug.Conn.put_resp_cookie(conn, "session", "1")
+      _ ->
+	conn
+    end
+  end
 end
