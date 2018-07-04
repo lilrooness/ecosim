@@ -26,6 +26,12 @@ defmodule ControllerSup do
     end
 
     def get_pid_by_id id do
-      :gproc.where({:n, :l, id})
+      key = {:n, :l, id}
+      case :gproc.where(key) do
+	:undefined ->
+	  :undefined
+	pid ->
+	  :gproc.get_value(key, pid)
+      end
     end
 end
