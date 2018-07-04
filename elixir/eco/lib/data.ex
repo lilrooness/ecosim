@@ -13,7 +13,7 @@ end
 
 defmodule Bid do
 
-  @json_fields [
+  @view_fields [
     :ask_id,
     :amount
   ]
@@ -33,7 +33,7 @@ defmodule Bid do
   end
 
   def to_view(%Bid{} = bid) do
-    Data.to_view(bid, @json_fields)
+    Data.to_view(bid, @view_fields)
   end
   
 end
@@ -41,7 +41,7 @@ end
 defmodule Ask do
   @behaviour Access
 
-  @json_fields [
+  @view_fields [
     :id,
     :product_id,
     :amount,
@@ -66,7 +66,7 @@ defmodule Ask do
   end
 
   def to_view(%Ask{} = bid) do
-    Data.to_view(bid, @json_fields)
+    Data.to_view(bid, @view_fields)
   end
   
   def fetch(%Ask{} = ask, field) do
