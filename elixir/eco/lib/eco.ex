@@ -71,7 +71,7 @@ defmodule ControllerPlug do
     Plug.Conn.send_resp(conn, 200, conn.assigns[:asks])
   end
 
-  defp respond(conn, :bid) do
+  defp respond(conn, _) do
     Plug.Conn.send_resp(conn, 200, "OK")
   end
 

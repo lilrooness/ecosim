@@ -1,5 +1,23 @@
+defmodule Data do
+
+  def to_view(thing, fields) do
+    fields
+    |> Enum.reduce(%{}, fn(field, acc) ->
+      value = Map.get(thing, field)
+      Map.put(acc, field, value)
+    end)
+  end
+  
+end
+
+
 defmodule Bid do
 
+  @json_fields [
+    :ask_id,
+    :amount
+  ]
+  
   defstruct(
     ask_id: 0,
     amount: 0,
@@ -13,10 +31,22 @@ defmodule Bid do
       from: from
     }
   end
+
+  def to_view(%Bid{} = bid) do
+    Data.to_view(bid, @json_fields)
+  end
+  
 end
 
 defmodule Ask do
   @behaviour Access
+
+  @json_fields [
+    :id,
+    :product_id,
+    :amount,
+    :ppu
+  ]
   
   defstruct(
     id: 0,
@@ -33,6 +63,10 @@ defmodule Ask do
       amount: amount,
       ppu: ppu
     }
+  end
+
+  def to_view(%Ask{} = bid) do
+    Data.to_view(bid, @json_fields)
   end
   
   def fetch(%Ask{} = ask, field) do
@@ -91,6 +125,12 @@ defmodule AskList do
 
   def get_last_id(%AskList{id: id}) do
     id
+  end
+
+  def to_view(%AskList{asks: asks}) do
+    asks
+    |> Map.values
+    |> Enum.map(fn(ask) -> Ask.to_view(ask) end)
   end
 
   def list_asks(%AskList{asks: asks}) do
