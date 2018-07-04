@@ -10,7 +10,7 @@ defmodule Controller do
     labour: 0
   )
 
-  def start_link(id) do
+  def start_link id do
     GenServer.start(__MODULE__, [id], [])
   end
 
@@ -31,8 +31,7 @@ defmodule Controller do
   # CALLBACKS
 
   def init([id]) do
-    # products = for {id, _} <- Application.get_env(:eco, :products), do: id
-    prodIds = for {id, _} <- Application.get_env(:eco, :products), do: id
+    prodIds = for {prodId, _} <- Application.get_env(:eco, :products), do: prodId
     # prepare inventory
     inventory = List.foldl(prodIds, %{}, fn(elem, acc) ->
       Map.put(acc, elem, 0)

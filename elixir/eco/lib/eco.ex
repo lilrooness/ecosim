@@ -15,8 +15,8 @@ end
 defmodule ControllerPlug do
   use Plug.Router
 
-  plug :match
   plug :cookie
+  plug :match
   plug :dispatch
 
   def init(opts) do
@@ -41,7 +41,7 @@ defmodule ControllerPlug do
     |> Enum.map(fn(ask) ->
       ask 
       |> Map.from_struct
-      |> Map.delete(:from) 
+      |> Map.delete(:from)
     end)
     |> Eljiffy.encode
     Plug.Conn.assign(conn, :asks, asks)
@@ -60,13 +60,23 @@ defmodule ControllerPlug do
   end
 
   defp ensure_cookie(conn) do
-    case Map.get(conn.cookies, "session", nil) do
-      nil ->
-	# start new controller process
-	ControllerSup.new_controller 1
-	Plug.Conn.put_resp_cookie(conn, "session", "1")
-      _ ->
-	conn
+    if has_controller(conn) do
+      conn
+    else
+	   # start new controller process
+	   id = ControllerSup.new_controller
+	   Plug.Conn.put_resp_cookie(conn, "session", id)
+    end
+  end
+
+  defp has_controller(conn) do
+    id = Map.get(conn.cookies, "session", :undef)
+
+    case ControllerSup.get_pid_by_id(id) do
+      :undefined ->
+        false
+      _pid ->
+        true
     end
   end
 end
