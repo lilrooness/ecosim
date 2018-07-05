@@ -47,7 +47,7 @@ defmodule ControllerPlug do
     {askId, _} = Map.get(conn.query_params, "askId")
     |> Integer.parse
 
-    {amount, _} = amount = Map.get(conn.query_params, "amount")
+    {amount, _} = Map.get(conn.query_params, "amount")
     |> Integer.parse
 
     conn.assigns[:controller_id]

@@ -54,9 +54,15 @@ defmodule TurnMarket do
   end
 
   def handle_call({:bid, %Bid{} = bid}, {fromPid, _}, state) do
-    bidWithFrom = Map.put(bid, :from, fromPid)
-    newState = %{state | :bids =>[bidWithFrom | state.bids]}
-    {:reply, :ok, newState}
+    # if ask exists, then log bid
+    case AskList.fetch(state.asks, bid.ask_id) do
+      {:ok, _ask} ->
+        bidWithFrom = Map.put(bid, :from, fromPid)
+        newState = %{state | :bids =>[bidWithFrom | state.bids]}
+        {:reply, :ok, newState}
+      :error ->
+        {:reply, :ok, state}
+      end
   end
 
   def handle_call(:list_asks, _from, state) do

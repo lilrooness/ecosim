@@ -119,7 +119,7 @@ defmodule Controller do
 
     case lookup do
       nil ->
-        {:error, :invalid_ask_id}
+        0
       ask ->
         trunc(state.money / ask.ppu)
     end
