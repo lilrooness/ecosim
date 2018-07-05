@@ -18,7 +18,7 @@ defmodule ControllerSup do
       currentCount = Integer.to_string(:gproc.get_value({:c, :l, @counter_name}, supPid))
       :gproc.update_counter({:c, :l, @counter_name}, supPid, 1)
 
-      childSpec = {Controller, id: currentCount}
+      childSpec = {Controller, currentCount}
       
       {:ok, childPid} = DynamicSupervisor.start_child(ControllerSup, childSpec)
       :gproc.reg_other({:n, :l, currentCount}, supPid, childPid)
