@@ -24,3 +24,4 @@ eco-*.tar
 
 # Ignore elixir dialyzer plts generated from VSCode
 .elixir_ls
+.DS_Store
