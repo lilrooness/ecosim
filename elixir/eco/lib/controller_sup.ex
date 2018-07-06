@@ -25,6 +25,8 @@ defmodule ControllerSup do
       currentCount
     end
 
+    # TODO: Check how much of a bottleneck
+    #       gproc:where/1 is
     def get_pid_by_id id do
       key = {:n, :l, id}
       case :gproc.where(key) do

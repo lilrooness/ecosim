@@ -51,10 +51,40 @@ defmodule ControllerPlug do
     |> respond(:create)
   end
 
+  get "/get_state" do
+    conn
+    |> get_state
+    |> respond(:get_state)
+  end
+
+  get "/list_products" do
+    conn
+    |> get_products
+    |> respond(:get_products)
+  end
+
   match _ do
     conn
     |> put_resp_content_type("text/plain")
     |> Plug.Conn.send_resp(400, "Not Implemented")
+  end
+
+  defp get_products(conn) do
+    products = Application.get_env(:eco, :products)
+    |> Eljiffy.encode
+
+    conn
+    |> Plug.Conn.assign(:products, products)
+  end
+
+  defp get_state(conn) do
+    encodedState = conn.assigns[:controller_id]
+    |> ControllerSup.get_pid_by_id
+    |> Controller.get_state
+    |> Eljiffy.encode
+
+    conn
+    |> Plug.Conn.assign(:json_state, encodedState)
   end
 
   defp bid(conn) do
@@ -111,6 +141,14 @@ defmodule ControllerPlug do
 
   defp respond(conn, :get_asks) do
     Plug.Conn.send_resp(conn, 200, conn.assigns[:asks])
+  end
+
+  defp respond(conn, :get_state) do
+    Plug.Conn.send_resp(conn, 200, conn.assigns[:json_state])
+  end
+
+  defp respond(conn, :get_products) do
+    Plug.Conn.send_resp(conn, 200, conn.assigns[:products])
   end
 
   defp respond(conn, _) do

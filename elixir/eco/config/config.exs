@@ -37,9 +37,9 @@ config(:eco, [
       :class => :food,
       :raw => false,
       :food_value => 20,
-      :deps => [
-        [id: "bowl of snot", amount: 2]
-      ]
+      :deps => %{
+        "bowl of snot" => 2
+      }
     },
     "calories" => %{
       :labour_cost => 0.1,
@@ -72,27 +72,36 @@ config(:eco, [
       :labour_cost => 16,
       :class => :comodity,
       :raw => false,
-      :deps => [
-        [id: 1, amount: 10],
-	[id: 2, amount: 35]]
+      :deps => %{
+        "1" => 10,
+        "2" => 35
+      }
     },
 
     "5" =>%{
       :labour_cost => 20,
       :class => :comodity,
       :raw => false,
-      :deps => [
-        [id: 1, amount: 7],
-	[id: 3, amount: 20]]
+      # :deps => [
+      #   [id: 1, amount: 7],
+      #   [id: 3, amount: 20]]
+      :deps => %{
+        "1" => 7,
+        "3" => 20
+      }
     },
 
     "6" => %{
       :labour_cost => 19,
       :class => :comodity,
       :raw => false,
-      :deps => [
-        [id: 2, amount: 3],
-	[id: 3, amount: 4]]
+      # :deps => [
+      #   [id: 2, amount: 3],
+      #   [id: 3, amount: 4]]
+      :deps => %{
+        "2" => 3,
+        "3" => 4
+      }
     }
   }}
 ])
