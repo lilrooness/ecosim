@@ -30,17 +30,19 @@ defmodule TimeGauge do
   end
 
   def handle_info(:tick, state) do
-    newState = List.foldl(Map.keys(state), %{}, fn(key, acc) ->
-      {sum, record} = state[key]
-      Map.put(acc, key, {0, [sum | record]})
-    end)
+    newState =
+      List.foldl(Map.keys(state), %{}, fn key, acc ->
+        {sum, record} = state[key]
+        Map.put(acc, key, {0, [sum | record]})
+      end)
+
     # TODO: restart timer
     {:noreply, newState}
   end
 end
 
 defmodule ValueGauge do
-    use GenServer
+  use GenServer
 
   def start_link() do
     GenServer.start_link(__MODULE__, [], [])
@@ -71,7 +73,6 @@ defmodule ValueGauge do
 end
 
 defmodule GaugeC do
-
   def start_gauge(:time, [timeStep]) do
     TimeGauge.start_link(timeStep)
   end

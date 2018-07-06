@@ -10,8 +10,7 @@ defmodule Bot do
     labour: 0,
     turn: 0
   )
-  
-  
+
   def start_link() do
     GenServer.start_link(__MODULE__, [], [])
   end
@@ -19,22 +18,26 @@ defmodule Bot do
   def init([]) do
     prodIds = for {id, _} <- Application.get_env(:eco, :products), do: id
     # prepare inventory
-    inventory = List.foldl(prodIds, %{},
-      fn(elem, acc) ->
-	Map.put(acc, elem, 0)
+    inventory =
+      List.foldl(prodIds, %{}, fn elem, acc ->
+        Map.put(acc, elem, 0)
       end)
+
     # prepare productivities
-    prods = List.foldl(prodIds, %{},
-      fn(elem, acc) ->
-	Map.put(acc, elem, :rand.uniform)
+    prods =
+      List.foldl(prodIds, %{}, fn elem, acc ->
+        Map.put(acc, elem, :rand.uniform())
       end)
+
     maxLabour = Application.get_env(:eco, :max_labour)
-    {:ok, %Bot{
-	prefs: generate_preferences(prodIds),
-	prods: prods,
-	inventory: inventory,
-	money: 1000,
-	labour: maxLabour
+
+    {:ok,
+     %Bot{
+       prefs: generate_preferences(prodIds),
+       prods: prods,
+       inventory: inventory,
+       money: 1000,
+       labour: maxLabour
      }}
   end
 
@@ -42,17 +45,13 @@ defmodule Bot do
     paid = ppu * amount
     newAmount = state.inventory[productId] + amount
     newInventory = %{state.inventory | productId => newAmount}
-    {:noreply, %{state |
-		 :money => state.money - paid,
-		 :inventory => newInventory}}
+    {:noreply, %{state | :money => state.money - paid, :inventory => newInventory}}
   end
-  
+
   def handle_info({:sold, productId, amount, ppu}, state) do
     newAmount = state.created[productId] - amount
     newCreated = %{state.created | productId => newAmount}
-    {:noreply, %{state |
-		 :money => state.money + (amount * ppu),
-		 :created => newCreated}}
+    {:noreply, %{state | :money => state.money + amount * ppu, :created => newCreated}}
   end
 
   def handle_info(:produce, state) do
@@ -66,24 +65,27 @@ defmodule Bot do
     products = Application.get_env(:eco, :products)
     maxLabour = Application.get_env(:eco, :max_labour)
     labourNeeded = maxLabour - state.labour
-    
+
     TurnMarket.get_asks_as_list(TurnMarket)
-    |> Enum.filter(fn(ask) ->
+    |> Enum.filter(fn ask ->
       IO.puts("class:")
       IO.puts(products[ask.product_id].class)
       products[ask.product_id].class === :food
     end)
-    |> Enum.sort(fn(ask1, ask2) ->
+    |> Enum.sort(fn ask1, ask2 ->
       ask1.ppu < ask2.ppu
-    end) |> place_food_bids(labourNeeded, state.money, TurnMarket)
+    end)
+    |> place_food_bids(labourNeeded, state.money, TurnMarket)
 
     {:noreply, state}
   end
 
-  def place_food_bids([ask | rest], labourNeeded, money, marketPid) when labourNeeded > 0 and money > 0 do
+  def place_food_bids([ask | rest], labourNeeded, money, marketPid)
+      when labourNeeded > 0 and money > 0 do
     foodValue = Map.get(Application.get_env(:eco, :products), ask.product_id)[:food_value]
     max = min(ask.amount, trunc(money / ask.ppu))
     IO.puts(max)
+
     if max > 0 do
       spend = max * ask.ppu
       bid = Bid.new(ask.id, max, self())
@@ -103,27 +105,28 @@ defmodule Bot do
   def submit_asks(marketPid, state) do
     state.created
     |> Enum.each(fn
-        {_, 0} ->
-          :ok
-        {prodId, amount} ->
-          TurnMarket.ask(marketPid, prodId, amount, :rand.uniform*10)
+      {_, 0} ->
+        :ok
+
+      {prodId, amount} ->
+        TurnMarket.ask(marketPid, prodId, amount, :rand.uniform() * 10)
     end)
   end
 
-  #generate prefences adding up to 1
+  # generate prefences adding up to 1
   def generate_preferences(prodIds) do
-    nums = for _ <- 1..length(prodIds), do: :rand.uniform
+    nums = for _ <- 1..length(prodIds), do: :rand.uniform()
     sum = Enum.sum(nums)
 
-    prefs = (for n <- nums, do: n / sum)
+    prefs = for n <- nums, do: n / sum
+
     List.zip([prodIds, prefs])
-    |> List.foldl(%{},
-      fn({k, v}, prefMap) ->
-	Map.put(prefMap, k, v)
-      end)
+    |> List.foldl(%{}, fn {k, v}, prefMap ->
+      Map.put(prefMap, k, v)
+    end)
   end
-  
+
   def get_product_by_id(prodId) do
-    (Application.get_env(:eco, :products))[prodId]
+    Application.get_env(:eco, :products)[prodId]
   end
 end

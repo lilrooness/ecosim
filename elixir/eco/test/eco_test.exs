@@ -12,6 +12,7 @@ defmodule EcoTest do
   test "Person get best production choice" do
     products = Application.get_env(:eco, :products)
     productids = for {id, _} <- products, do: id
+
     testState = %{
       :funds => 1000,
       :labour => 1000,
@@ -21,7 +22,7 @@ defmodule EcoTest do
       :product_path => false,
       :inventory => %{
         "chicken" => 0,
-	"bowl of snot" => 0,
+        "bowl of snot" => 0,
         1 => 10,
         2 => 35,
         3 => 0,
@@ -37,6 +38,7 @@ defmodule EcoTest do
   test "Person get production amount" do
     products = Application.get_env(:eco, :products)
     productIds = for {id, _} <- products, do: id
+
     testState = %{
       :funds => 1000,
       :labour => 1000,
@@ -46,11 +48,11 @@ defmodule EcoTest do
       :product_path => false,
       :inventory => %{
         1 => 10,
-	2 => 35,
-	3 => 0,
-	4 => 0,
-	5 => 0,
-	6 => 0
+        2 => 35,
+        3 => 0,
+        4 => 0,
+        5 => 0,
+        6 => 0
       }
     }
 
@@ -59,6 +61,7 @@ defmodule EcoTest do
 
   test "Person check has nessecary resources" do
     productIds = for {id, _} <- Application.get_env(:eco, :products), do: id
+
     testState = %{
       :funds => 1000,
       :labour => 1000,
@@ -68,13 +71,14 @@ defmodule EcoTest do
       :product_path => false,
       :inventory => %{
         1 => 10,
-	2 => 35,
-	3 => 0,
-	4 => 0,
-	5 => 0,
-	6 => 0
+        2 => 35,
+        3 => 0,
+        4 => 0,
+        5 => 0,
+        6 => 0
       }
     }
+
     assert Person.can_produce_now(1, testState, Application.get_env(:eco, :products)) == true
     assert Person.can_produce_now(2, testState, Application.get_env(:eco, :products)) == true
     assert Person.can_produce_now(3, testState, Application.get_env(:eco, :products)) == true

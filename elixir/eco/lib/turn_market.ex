@@ -1,6 +1,6 @@
 defmodule TurnMarket do
   @behaviour GenServer
-  
+
   defstruct(
     turn: 0,
     asks: %AskList{},
@@ -40,7 +40,7 @@ defmodule TurnMarket do
   def settle(marketPid) do
     GenServer.cast(marketPid, :settle)
   end
-  
+
   # CALLBACKS
   def init([]) do
     {:ok, %TurnMarket{}}
@@ -58,18 +58,19 @@ defmodule TurnMarket do
     case AskList.fetch(state.asks, bid.ask_id) do
       {:ok, _ask} ->
         bidWithFrom = Map.put(bid, :from, fromPid)
-        newState = %{state | :bids =>[bidWithFrom | state.bids]}
+        newState = %{state | :bids => [bidWithFrom | state.bids]}
         {:reply, :ok, newState}
+
       :error ->
         {:reply, :ok, state}
-      end
+    end
   end
 
   def handle_call(:list_asks, _from, state) do
     askList = AskList.list_asks(state.asks)
     {:reply, askList, state}
   end
-  
+
   def handle_call(:get_asks, _from, state) do
     {:reply, state.asks, state}
   end
@@ -81,10 +82,12 @@ defmodule TurnMarket do
   def handle_call(:get_turns, _from, state) do
     {:reply, state.pastTurns, state}
   end
-  
+
   def handle_cast(:settle, state) do
-    newState = Enum.shuffle(state.bids)
-    |> Enum.reduce(state, &resolve_bid/2)
+    newState =
+      Enum.shuffle(state.bids)
+      |> Enum.reduce(state, &resolve_bid/2)
+
     {:noreply, %{newState | :bids => []}}
   end
 
@@ -103,11 +106,13 @@ defmodule TurnMarket do
   # UTILS
   defp resolve_bid(%Bid{} = bid, state) do
     {:ok, ask} = AskList.fetch(state.asks, bid.ask_id)
-    buyAmount = if bid.amount >= ask.amount do
-      ask.amount
-    else
-      bid.amount
-    end
+
+    buyAmount =
+      if bid.amount >= ask.amount do
+        ask.amount
+      else
+        bid.amount
+      end
 
     send(ask.from, {:sold, ask.product_id, buyAmount, ask.ppu})
     send(bid.from, {:won, ask.product_id, buyAmount, ask.ppu})

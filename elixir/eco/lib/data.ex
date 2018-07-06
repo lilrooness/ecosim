@@ -1,30 +1,26 @@
 defmodule Data do
-
   def to_view(thing, fields) do
     fields
-    |> Enum.reduce(%{}, fn(field, acc) ->
+    |> Enum.reduce(%{}, fn field, acc ->
       value = Map.get(thing, field)
       Map.put(acc, field, value)
     end)
   end
-  
 end
 
-
 defmodule Bid do
-
   @view_fields [
     :ask_id,
     :amount
   ]
-  
+
   defstruct(
     ask_id: 0,
     amount: 0,
     from: 0
   )
 
-  def new(askId \\0, amount \\0, from \\0) do
+  def new(askId \\ 0, amount \\ 0, from \\ 0) do
     %Bid{
       ask_id: askId,
       amount: amount,
@@ -35,7 +31,6 @@ defmodule Bid do
   def to_view(%Bid{} = bid) do
     Data.to_view(bid, @view_fields)
   end
-  
 end
 
 defmodule Ask do
@@ -47,7 +42,7 @@ defmodule Ask do
     :amount,
     :ppu
   ]
-  
+
   defstruct(
     id: 0,
     product_id: 0,
@@ -56,7 +51,7 @@ defmodule Ask do
     ppu: 0
   )
 
-  def new(productId \\0, from \\0, amount \\0, ppu \\0) do
+  def new(productId \\ 0, from \\ 0, amount \\ 0, ppu \\ 0) do
     %Ask{
       product_id: productId,
       from: from,
@@ -68,13 +63,14 @@ defmodule Ask do
   def to_view(%Ask{} = bid) do
     Data.to_view(bid, @view_fields)
   end
-  
+
   def fetch(%Ask{} = ask, field) do
     case Map.get(ask, field, nil) do
       nil ->
-	:error
+        :error
+
       value ->
-	{:ok, value}
+        {:ok, value}
     end
   end
 
@@ -84,7 +80,7 @@ defmodule Ask do
       :error -> default
     end
   end
-  
+
   def get_and_update(%Ask{} = ask, field, fun) do
     get(ask, field, nil)
     |> fun.()
@@ -95,28 +91,25 @@ defmodule Ask do
     newAsks = Map.put(ask, field, update_value)
     {get_value, newAsks}
   end
-  
+
   defp update_or_pop(:pop, %Ask{} = ask, field) do
     pop(ask, field)
   end
-  
+
   def pop(%Ask{} = ask, field) do
     value = Map.get(ask, field)
     newAsk = Map.delete(ask, field)
     {value, newAsk}
   end
-    
 end
-
 
 defmodule AskList do
   @behaviour Access
-  
+
   defstruct(
     id: 0,
     asks: %{}
   )
-
 
   # API FUNCTIONS
   def new() do
@@ -129,14 +122,14 @@ defmodule AskList do
 
   def to_view(%AskList{asks: asks}) do
     asks
-    |> Map.values
-    |> Enum.map(fn(ask) -> Ask.to_view(ask) end)
+    |> Map.values()
+    |> Enum.map(fn ask -> Ask.to_view(ask) end)
   end
 
   def list_asks(%AskList{asks: asks}) do
     for {_id, ask} <- asks, into: [], do: ask
   end
-  
+
   def add(%AskList{} = askList, %Ask{} = ask) do
     newId = askList.id + 1
     ask = %{ask | id: newId}
@@ -154,7 +147,7 @@ defmodule AskList do
 
     add(askList, ask)
   end
-  
+
   # ACCESS CALLBACKS
   def fetch(%AskList{} = asks, askId) do
     if Map.has_key?(asks.asks, askId) do

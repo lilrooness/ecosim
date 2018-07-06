@@ -31,78 +31,69 @@ use Mix.Config
 
 config(:eco, [
   {:max_labour, 1000},
-  {:products, %{
-    "chicken" => %{
-      :labour_cost => 4,
-      :class => :food,
-      :raw => false,
-      :food_value => 20,
-      :deps => %{
-        "bowl of snot" => 2
-      }
-    },
-    "calories" => %{
-      :labour_cost => 0.1,
-      :class => :food,
-      :raw => true,
-      :food_value => 1
-    },
-    "coffee" => %{
-      :labour_cost => 5,
-      :class => :base,
-      :raw => true
-    },
-    "1" => %{
-      :labour_cost => 15,
-      :class => :base,
-      :raw => true
-    },
-    "2" => %{
-      :labour_cost => 13,
-      :class => :base,
-      :raw => true
-    },
-    "3" => %{
-      :labour_cost => 11,
-      :class => :base,
-      :raw => true
-    },
-
-    "4" => %{
-      :labour_cost => 16,
-      :class => :comodity,
-      :raw => false,
-      :deps => %{
-        "1" => 10,
-        "2" => 35
-      }
-    },
-
-    "5" =>%{
-      :labour_cost => 20,
-      :class => :comodity,
-      :raw => false,
-      # :deps => [
-      #   [id: 1, amount: 7],
-      #   [id: 3, amount: 20]]
-      :deps => %{
-        "1" => 7,
-        "3" => 20
-      }
-    },
-
-    "6" => %{
-      :labour_cost => 19,
-      :class => :comodity,
-      :raw => false,
-      # :deps => [
-      #   [id: 2, amount: 3],
-      #   [id: 3, amount: 4]]
-      :deps => %{
-        "2" => 3,
-        "3" => 4
-      }
-    }
-  }}
+  {:products,
+   %{
+     "chicken" => %{
+       :labour_cost => 4,
+       :class => :food,
+       :raw => false,
+       :food_value => 20,
+       :deps => %{
+         "bowl of snot" => 2
+       }
+     },
+     "calories" => %{
+       :labour_cost => 0.1,
+       :class => :food,
+       :raw => true,
+       :food_value => 1
+     },
+     "coffee" => %{
+       :labour_cost => 5,
+       :class => :base,
+       :raw => true
+     },
+     "1" => %{
+       :labour_cost => 15,
+       :class => :base,
+       :raw => true
+     },
+     "2" => %{
+       :labour_cost => 13,
+       :class => :base,
+       :raw => true
+     },
+     "3" => %{
+       :labour_cost => 11,
+       :class => :base,
+       :raw => true
+     },
+     "4" => %{
+       :labour_cost => 16,
+       :class => :comodity,
+       :raw => false,
+       :deps => %{
+         "1" => 10,
+         "2" => 35
+       }
+     },
+     "5" => %{
+       :labour_cost => 20,
+       :class => :comodity,
+       :raw => false,
+       :deps => %{
+         "1" => 7,
+         "3" => 20
+       }
+     },
+     "6" => %{
+       :labour_cost => 19,
+       :class => :comodity,
+       :raw => false,
+       :deps => %{
+         "2" => 3,
+         "3" => 4
+       }
+     }
+   }}
 ])
-
