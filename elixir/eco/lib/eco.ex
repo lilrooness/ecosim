@@ -37,6 +37,13 @@ defmodule ControllerPlug do
     |> respond(:bid)
   end
 
+  get "/ask" do
+    conn
+    |> fetch_query_params
+    |> ask
+    |> respond(:ask)
+  end
+
   get "/create" do
     conn
     |> fetch_query_params
@@ -60,6 +67,22 @@ defmodule ControllerPlug do
     conn.assigns[:controller_id]
     |> ControllerSup.get_pid_by_id
     |> Controller.bid(askId, amount)
+    conn
+  end
+
+  defp ask(conn) do
+    prodId = Map.get(conn.query_params, "product_id")
+    
+    {amount, _} = Map.get(conn.query_params, "amount")
+    |> Integer.parse
+
+    {ppu, _} = Map.get(conn.query_params, "ppu")
+    |> Integer.parse
+
+    conn.assigns[:controller_id]
+    |> ControllerSup.get_pid_by_id
+    |> Controller.ask(prodId, amount, ppu)
+
     conn
   end
 

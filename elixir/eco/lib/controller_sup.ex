@@ -34,4 +34,8 @@ defmodule ControllerSup do
 	  :gproc.get_value(key, pid)
       end
     end
+
+    def list_children do
+      Supervisor.which_children ControllerSup
+    end
 end
