@@ -1,4 +1,5 @@
 defmodule Bot do
+  @behaviour GenServer
 
   defstruct(
     prefs: [],
@@ -55,8 +56,8 @@ defmodule Bot do
   end
 
   def handle_info(:produce, state) do
-    prodId = get_best_production_option(state)
-    newState = create(prodId, state)
+    {prodId, amount} = ActorUtils.get_best_production_option(state)
+    newState = ActorUtils.create(prodId, amount, state)
     submit_asks(TurnMarket, newState)
     {:noreply, newState}
   end
@@ -121,42 +122,6 @@ defmodule Bot do
 	Map.put(prefMap, k, v)
       end)
   end
-
-  def get_best_production_option(state) do
-    {id, _amount} = Application.get_env(:eco, :products)
-    |> Enum.map(fn({id, prod}) ->
-      {id, can_create(prod, state)}
-    end)
-    |> Enum.sort(fn({_, v1}, {_, v2}) ->
-      v1 > v2
-    end) |> hd
-    id
-  end
-  
-  def can_create(product, state) do
-    case product.raw do
-      true ->
-	       :math.floor(state.labour / product.labour_cost)
-      false ->
-	       0.0
-    end
-  end
-
-
-  def create(productId, state) do
-    product = (Application.get_env(:eco, :products))[productId]
-    if product.raw do
-      amount = :math.floor(state.labour / product.labour_cost)
-      labour_cost = amount * product.labour_cost
-      newAmount = amount + Map.get(state.created, productId, 0)
-      %{state |
-	:labour => state.labour - labour_cost,
-	:created => Map.put(state.created, productId, newAmount)}
-    else
-      state
-    end
-  end
-
   
   def get_product_by_id(prodId) do
     (Application.get_env(:eco, :products))[prodId]

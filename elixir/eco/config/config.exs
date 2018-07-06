@@ -52,23 +52,23 @@ config(:eco, [
       :class => :base,
       :raw => true
     },
-    1 => %{
+    "1" => %{
       :labour_cost => 15,
       :class => :base,
       :raw => true
     },
-    2 => %{
+    "2" => %{
       :labour_cost => 13,
       :class => :base,
       :raw => true
     },
-    3 => %{
+    "3" => %{
       :labour_cost => 11,
       :class => :base,
       :raw => true
     },
 
-    4 => %{
+    "4" => %{
       :labour_cost => 16,
       :class => :comodity,
       :raw => false,
@@ -77,7 +77,7 @@ config(:eco, [
 	[id: 2, amount: 35]]
     },
 
-    5 =>%{
+    "5" =>%{
       :labour_cost => 20,
       :class => :comodity,
       :raw => false,
@@ -86,7 +86,7 @@ config(:eco, [
 	[id: 3, amount: 20]]
     },
 
-    6 => %{
+    "6" => %{
       :labour_cost => 19,
       :class => :comodity,
       :raw => false,

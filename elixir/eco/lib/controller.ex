@@ -1,6 +1,8 @@
 defmodule Controller do
   use GenServer
 
+
+
   defstruct(
     id: 0,
     prods: [],
@@ -15,6 +17,10 @@ defmodule Controller do
   end
 
   # API
+
+  def create(controller, productId, amount) do
+    GenServer.cast(controller, {:create, productId, amount})
+  end
 
   def bid(controller, askId, amount) do
     GenServer.call(controller, {:bid, askId, amount})
@@ -101,6 +107,15 @@ defmodule Controller do
     {:reply, state, state}
   end
 
+  def handle_cast({:create, productId, amount}, state) do
+    newState = if can_create(productId, state) >= amount do
+      ActorUtils.create(productId, amount, state)
+    else
+      state
+    end
+    {:noreply, newState}
+  end
+
   def code_change(_oldVsn, state, _extra) do
     {:ok, state}
   end
@@ -111,6 +126,12 @@ defmodule Controller do
 
   defp can_sell(productId, state) do
     Map.get(state.created, productId, 0)
+  end
+
+  defp can_create(productId, state) do
+    Application.get_env(:eco, :products)
+    |> Map.get(productId, nil)
+    |> ActorUtils.can_create(state)
   end
 
   defp can_bid(askId, state) do

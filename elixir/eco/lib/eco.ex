@@ -37,6 +37,13 @@ defmodule ControllerPlug do
     |> respond(:bid)
   end
 
+  get "/create" do
+    conn
+    |> fetch_query_params
+    |> create
+    |> respond(:create)
+  end
+
   match _ do
     conn
     |> put_resp_content_type("text/plain")
@@ -53,6 +60,18 @@ defmodule ControllerPlug do
     conn.assigns[:controller_id]
     |> ControllerSup.get_pid_by_id
     |> Controller.bid(askId, amount)
+    conn
+  end
+
+  defp create(conn) do
+    prodId = Map.get(conn.query_params, "product_id")
+    {amount, _} = Map.get(conn.query_params, "amount")
+    |> Integer.parse
+
+    conn.assigns[:controller_id]
+    |> ControllerSup.get_pid_by_id
+    |> Controller.create(prodId, amount)
+
     conn
   end
 
