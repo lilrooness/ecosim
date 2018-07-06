@@ -1,6 +1,8 @@
 defmodule Controller do
   use GenServer
 
+
+
   defstruct(
     id: 0,
     prods: [],
@@ -10,11 +12,15 @@ defmodule Controller do
     labour: 0
   )
 
-  def start_link(id) do
+  def start_link id do
     GenServer.start(__MODULE__, [id], [])
   end
 
   # API
+
+  def create(controller, productId, amount) do
+    GenServer.cast(controller, {:create, productId, amount})
+  end
 
   def bid(controller, askId, amount) do
     GenServer.call(controller, {:bid, askId, amount})
@@ -31,8 +37,7 @@ defmodule Controller do
   # CALLBACKS
 
   def init([id]) do
-    # products = for {id, _} <- Application.get_env(:eco, :products), do: id
-    prodIds = for {id, _} <- Application.get_env(:eco, :products), do: id
+    prodIds = for {prodId, _} <- Application.get_env(:eco, :products), do: prodId
     # prepare inventory
     inventory = List.foldl(prodIds, %{}, fn(elem, acc) ->
       Map.put(acc, elem, 0)
@@ -102,6 +107,15 @@ defmodule Controller do
     {:reply, state, state}
   end
 
+  def handle_cast({:create, productId, amount}, state) do
+    newState = if can_create(productId, state) >= amount do
+      ActorUtils.create(productId, amount, state)
+    else
+      state
+    end
+    {:noreply, newState}
+  end
+
   def code_change(_oldVsn, state, _extra) do
     {:ok, state}
   end
@@ -114,13 +128,19 @@ defmodule Controller do
     Map.get(state.created, productId, 0)
   end
 
+  defp can_create(productId, state) do
+    Application.get_env(:eco, :products)
+    |> Map.get(productId, nil)
+    |> ActorUtils.can_create(state)
+  end
+
   defp can_bid(askId, state) do
     lookup = TurnMarket.get_asks(TurnMarket)
       |> AskList.get(askId, nil)
 
     case lookup do
       nil ->
-        {:error, :invalid_ask_id}
+        0
       ask ->
         trunc(state.money / ask.ppu)
     end
