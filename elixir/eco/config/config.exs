@@ -31,6 +31,7 @@ use Mix.Config
 
 config(:eco, [
   {:max_labour, 1000},
+  {:number_of_bots, 50},
   {:products,
    %{
      "chicken" => %{

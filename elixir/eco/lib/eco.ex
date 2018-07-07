@@ -2,8 +2,7 @@ defmodule Eco do
   use Application
 
   def start(_type, _args) do
-    TurnMarket.start_link()
-    ControllerSup.start_link()
+    EcoSup.start_link
     {:ok, _} = Plug.Adapters.Cowboy.http(ControllerPlug, [])
   end
 

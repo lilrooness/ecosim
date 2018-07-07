@@ -41,6 +41,12 @@ defmodule Bot do
      }}
   end
 
+  def handle_info(:turn, state) do
+    send(self, :produce)
+    send(self, :bid)
+    {:noreply, state}
+  end
+
   def handle_info({:won, productId, amount, ppu}, state) do
     paid = ppu * amount
     newAmount = state.inventory[productId] + amount
@@ -128,5 +134,14 @@ defmodule Bot do
 
   def get_product_by_id(prodId) do
     Application.get_env(:eco, :products)[prodId]
+  end
+
+  def child_spec([id]) do
+    %{
+      id: id,
+      type: :worker,
+      start: {Bot, :start_link, []},
+      restart: :permanent
+    }
   end
 end
