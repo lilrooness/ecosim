@@ -74,8 +74,6 @@ defmodule Bot do
 
     TurnMarket.get_asks_as_list(TurnMarket)
     |> Enum.filter(fn ask ->
-      IO.puts("class:")
-      IO.puts(products[ask.product_id].class)
       products[ask.product_id].class === :food
     end)
     |> Enum.sort(fn ask1, ask2 ->
@@ -86,16 +84,26 @@ defmodule Bot do
     {:noreply, state}
   end
 
+  def handle_info(_, state) do
+    {:noreply, state}
+  end
+
+  def handle_call(_, _from, state) do
+    {:reply, :not_implemented, state}
+  end
+
+  def handle_cast(_, state) do
+    {:noreply, state}
+  end
+
   def place_food_bids([ask | rest], labourNeeded, money, marketPid)
       when labourNeeded > 0 and money > 0 do
     foodValue = Map.get(Application.get_env(:eco, :products), ask.product_id)[:food_value]
     max = min(ask.amount, trunc(money / ask.ppu))
-    IO.puts(max)
 
     if max > 0 do
       spend = max * ask.ppu
       bid = Bid.new(ask.id, max, self())
-      IO.puts("bidding!")
       TurnMarket.bid(TurnMarket, bid)
       recouped = foodValue * max
       place_food_bids(rest, labourNeeded - recouped, money - spend, marketPid)

@@ -11,9 +11,9 @@ defmodule BotSup do
     Supervisor.init(children, strategy: :one_for_one)
   end
 
-  def tick(msg) do
+  def tick do
     Supervisor.which_children(BotSup)
-    |> Enum.each(fn {_id, botPid, _, _} -> send(botPid, msg) end)
+    |> Enum.each(fn {_id, botPid, _, _} -> send(botPid, :turn) end)
     :ok
   end
 end

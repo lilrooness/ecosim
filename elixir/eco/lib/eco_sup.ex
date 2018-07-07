@@ -20,6 +20,11 @@ defmodule EcoSup do
       %{id: TurnMarket,
       type: :worker,
       start: {TurnMarket, :start_link, []},
+      restart: :permanent},
+
+      %{id: TurnTimer,
+      type: :worker,
+      start: {TurnTimer, :start_link, []},
       restart: :permanent}
     ]
 
