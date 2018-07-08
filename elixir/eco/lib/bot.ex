@@ -5,10 +5,12 @@ defmodule Bot do
     prefs: [],
     prods: [],
     money: 0,
+    price_beliefs: %{},
     inventory: %{},
     created: %{},
     labour: 0,
-    turn: 0
+    turn: 0,
+    tracker_pid: nil
   )
 
   def start_link() do
@@ -42,9 +44,13 @@ defmodule Bot do
   end
 
   def handle_info(:turn, state) do
+    # if tracker is running, kill it
+    if state.tracker_pid, do: GenServer.stop(state.tracker_pid)
+
+    {:ok, trackerPid} = SalesTracker.start
     send(self, :produce)
     send(self, :bid)
-    {:noreply, state}
+    {:noreply, %{state | tracker_pid: trackerPid}}
   end
 
   def handle_info({:won, productId, amount, ppu}, state) do
@@ -54,7 +60,8 @@ defmodule Bot do
     {:noreply, %{state | :money => state.money - paid, :inventory => newInventory}}
   end
 
-  def handle_info({:sold, productId, amount, ppu}, state) do
+  def handle_info({:sold, askId, productId, amount, ppu}, state) do
+    SalesTracker.reg_sale(state.tracker_pid, askId, amount)
     newAmount = state.created[productId] - amount
     newCreated = %{state.created | productId => newAmount}
     {:noreply, %{state | :money => state.money + amount * ppu, :created => newCreated}}
@@ -123,7 +130,9 @@ defmodule Bot do
         :ok
 
       {prodId, amount} ->
-        TurnMarket.ask(marketPid, prodId, amount, :rand.uniform() * 10)
+        ppu = :rand.uniform() * 10
+        askId = TurnMarket.ask(marketPid, prodId, amount, ppu)
+        SalesTracker.reg_ask(state.tracker_pid, askId, ppu, amount)
     end)
   end
 

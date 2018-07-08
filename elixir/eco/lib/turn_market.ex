@@ -114,7 +114,7 @@ defmodule TurnMarket do
         bid.amount
       end
 
-    send(ask.from, {:sold, ask.product_id, buyAmount, ask.ppu})
+    send(ask.from, {:sold, ask.id, ask.product_id, buyAmount, ask.ppu})
     send(bid.from, {:won, ask.product_id, buyAmount, ask.ppu})
     remaining = ask.amount - buyAmount
     newAsks = put_in(state.asks, [bid.ask_id, :amount], remaining)
