@@ -106,7 +106,13 @@ defmodule Bot do
   def place_food_bids([ask | rest], labourNeeded, money, marketPid)
       when labourNeeded > 0 and money > 0 do
     foodValue = Map.get(Application.get_env(:eco, :products), ask.product_id)[:food_value]
-    max = min(ask.amount, trunc(money / ask.ppu))
+
+    # if price is 0, buy everything
+    max = if ask.ppu == 0 do
+      ask.amount
+    else
+      min(ask.amount, trunc(money / ask.ppu))
+    end
 
     if max > 0 do
       spend = max * ask.ppu
