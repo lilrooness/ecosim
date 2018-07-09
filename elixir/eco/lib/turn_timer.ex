@@ -20,7 +20,7 @@ defmodule TurnTimer do
   def handle_info(:start_turn, state) do
     IO.puts("triggering bots")
     BotSup.tick
-    :timer.send_after 60*1000, :end_turn
+    :timer.send_after 20*1000, :end_turn
     {:noreply, state}
   end
 

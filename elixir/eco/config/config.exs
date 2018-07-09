@@ -30,8 +30,8 @@ use Mix.Config
 #     import_config "#{Mix.env}.exs"
 
 config(:eco, [
-  {:max_labour, 1000},
-  {:number_of_bots, 50},
+  {:max_labour, 100},
+  {:number_of_bots, 2},
   {:price_sigma, 1},
   {:products,
    %{
@@ -45,7 +45,7 @@ config(:eco, [
        }
      },
      "calories" => %{
-       :labour_cost => 0.1,
+       :labour_cost => 1,
        :class => :food,
        :raw => true,
        :food_value => 1

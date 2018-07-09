@@ -45,12 +45,31 @@ defmodule Bot do
 
   def handle_info(:turn, state) do
     # if tracker is running, kill it
-    if state.tracker_pid, do: GenServer.stop(state.tracker_pid)
+    priceBeliefs = if is_pid state.tracker_pid do
+      priceBeliefs = SalesTracker.get_product_ids(state.tracker_pid)
+      |> Enum.reduce(state.price_beliefs, fn(prodId, acc) ->
+        case SalesTracker.get_most_successfull_price_for_product(state.tracker_pid, prodId) do
+          nil ->
+            acc
+          price ->
+            Map.put(acc, prodId, price)
+        end
+      end)
+
+      IO.inspect(priceBeliefs)
+
+      GenServer.stop(state.tracker_pid)
+      priceBeliefs
+    else
+      state.price_beliefs
+    end
+
+    # priceBeliefs = %{}
 
     {:ok, trackerPid} = SalesTracker.start
     send(self, :produce)
     send(self, :bid)
-    {:noreply, %{state | tracker_pid: trackerPid}}
+    {:noreply, %{state | tracker_pid: trackerPid, price_beliefs: priceBeliefs}}
   end
 
   def handle_info({:won, productId, amount, ppu}, state) do
@@ -108,7 +127,7 @@ defmodule Bot do
     foodValue = Map.get(Application.get_env(:eco, :products), ask.product_id)[:food_value]
 
     # if price is 0, buy everything
-    max = if ask.ppu == 0 do
+    max = if ask.ppu <= 0 do
       ask.amount
     else
       min(ask.amount, trunc(money / ask.ppu))
@@ -138,10 +157,12 @@ defmodule Bot do
         meanPrice = case Map.fetch(state.price_beliefs, prodId) do
           :error ->
             :rand.uniform() * 10
+          {:ok, nil} ->
+            :rand.uniform() * 10
           {:ok, value} ->
+            IO.inspect(value)
             :rstats.rnormal(value, 1)
         end
-
         ActorUtils.spread_ask(marketPid, prodId, amount, meanPrice, 10, state)
     end)
   end
@@ -170,5 +191,10 @@ defmodule Bot do
       start: {Bot, :start_link, []},
       restart: :permanent
     }
+  end
+
+  def terminate(_, _) do
+    IO.puts("bot terminated . . .")
+    :ok
   end
 end

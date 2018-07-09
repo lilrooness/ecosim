@@ -44,9 +44,9 @@ defmodule ActorUtils do
   def spread_ask(marketPid, prodId, amount, meanPrice, bucketSize, state) do
     generate_bucket_list(amount, bucketSize)
     |> Enum.each(fn(bucket) -> 
-      ppu = :rstats.rnormal(meanPrice, 1)
+      ppu = :rstats.rnormal(meanPrice, 10)
       askId = TurnMarket.ask(marketPid, prodId, bucket, ppu)
-      SalesTracker.reg_ask(state.tracker_pid, askId, ppu, bucket)
+      SalesTracker.reg_ask(state.tracker_pid, askId, ppu, bucket, prodId)
     end)
   end
 
@@ -54,13 +54,13 @@ defmodule ActorUtils do
     generate_bucket_list([], amount, bucketSize)
   end
 
-  defp generate_bucket_list(buckets, 0, _bucketSize) do
-    buckets
-  end
-
-  defp generate_bucket_list(buckets, amount, bucketSize) do
+  defp generate_bucket_list(buckets, amount, bucketSize) when amount > 0 do
     newBucket = min(amount, bucketSize)
     newAmount = amount - newBucket
-    generate_bucket_list([newAmount | buckets], newAmount, bucketSize)
+    generate_bucket_list([newBucket | buckets], newAmount, bucketSize)
+  end
+
+  defp generate_bucket_list(buckets, _amount, _bucketSize) do
+    buckets
   end
 end
