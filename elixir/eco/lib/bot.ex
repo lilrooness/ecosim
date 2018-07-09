@@ -134,11 +134,15 @@ defmodule Bot do
     |> Enum.each(fn
       {_, 0} ->
         :ok
-
       {prodId, amount} ->
-        ppu = :rand.uniform() * 10
-        askId = TurnMarket.ask(marketPid, prodId, amount, ppu)
-        SalesTracker.reg_ask(state.tracker_pid, askId, ppu, amount)
+        meanPrice = case Map.fetch(state.price_beliefs, prodId) do
+          :error ->
+            :rand.uniform() * 10
+          {:ok, value} ->
+            :rstats.rnormal(value, 1)
+        end
+
+        ActorUtils.spread_ask(marketPid, prodId, amount, meanPrice, 10, state)
     end)
   end
 
