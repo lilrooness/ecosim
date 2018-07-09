@@ -56,8 +56,6 @@ defmodule Bot do
         end
       end)
 
-      IO.inspect(priceBeliefs)
-
       GenServer.stop(state.tracker_pid)
       priceBeliefs
     else
@@ -160,7 +158,6 @@ defmodule Bot do
           {:ok, nil} ->
             :rand.uniform() * 10
           {:ok, value} ->
-            IO.inspect(value)
             :rstats.rnormal(value, 1)
         end
         ActorUtils.spread_ask(marketPid, prodId, amount, meanPrice, 10, state)
@@ -194,7 +191,6 @@ defmodule Bot do
   end
 
   def terminate(_, _) do
-    IO.puts("bot terminated . . .")
     :ok
   end
 end
