@@ -32,7 +32,7 @@ use Mix.Config
 config(:eco, [
   {:max_labour, 100},
   {:number_of_bots, 20},
-  {:price_sigma, 1},
+  {:price_sigma, 10},
   {:products,
    %{
      "chicken" => %{

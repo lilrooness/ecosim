@@ -42,9 +42,10 @@ defmodule ActorUtils do
   end
 
   def spread_ask(marketPid, prodId, amount, meanPrice, bucketSize, state) do
+    priceSigma = Application.get_env(:eco, :price_sigma)
     generate_bucket_list(amount, bucketSize)
     |> Enum.each(fn(bucket) -> 
-      ppu = normal_random_above_zero(meanPrice, 10)
+      ppu = normal_random_above_zero(meanPrice, priceSigma)
       askId = TurnMarket.ask(marketPid, prodId, bucket, ppu)
       SalesTracker.reg_ask(state.tracker_pid, askId, ppu, bucket, prodId)
     end)
