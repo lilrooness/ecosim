@@ -50,6 +50,15 @@ defmodule ActorUtils do
     end)
   end
 
+  def normal_random_above_zero(mean, sigma) do
+    value = :rstats.rnormal(mean, sigma)
+    if value >= 0 do
+      value
+    else
+      0
+    end
+  end
+
   defp generate_bucket_list(amount, bucketSize) do
     generate_bucket_list([], amount, bucketSize)
   end

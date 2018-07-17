@@ -158,7 +158,7 @@ defmodule Bot do
           {:ok, nil} ->
             :rand.uniform() * 10
           {:ok, value} ->
-            :rstats.rnormal(value, 1)
+            ActorUtils.normal_random_above_zero(value, 1)
         end
         ActorUtils.spread_ask(marketPid, prodId, amount, meanPrice, 10, state)
     end)
