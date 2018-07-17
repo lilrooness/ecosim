@@ -66,7 +66,7 @@ defmodule Controller do
     {:noreply, %{state | :money => state.money - paid, :inventory => newInventory}}
   end
 
-  def handle_info({:sold, productId, amount, ppu}, state) do
+  def handle_info({:sold, _askId, productId, amount, ppu}, state) do
     newAmount = state.created[productId] - amount
     newCreated = %{state.created | productId => newAmount}
     {:noreply, %{state | :money => state.money + amount * ppu, :created => newCreated}}

@@ -5,10 +5,12 @@ defmodule Bot do
     prefs: [],
     prods: [],
     money: 0,
+    price_beliefs: %{},
     inventory: %{},
     created: %{},
     labour: 0,
-    turn: 0
+    turn: 0,
+    tracker_pid: nil
   )
 
   def start_link() do
@@ -42,9 +44,30 @@ defmodule Bot do
   end
 
   def handle_info(:turn, state) do
+    # if tracker is running, kill it
+    priceBeliefs = if is_pid state.tracker_pid do
+      priceBeliefs = SalesTracker.get_product_ids(state.tracker_pid)
+      |> Enum.reduce(state.price_beliefs, fn(prodId, acc) ->
+        case SalesTracker.get_most_successfull_price_for_product(state.tracker_pid, prodId) do
+          nil ->
+            acc
+          price ->
+            Map.put(acc, prodId, price)
+        end
+      end)
+
+      GenServer.stop(state.tracker_pid)
+      priceBeliefs
+    else
+      state.price_beliefs
+    end
+
+    # priceBeliefs = %{}
+
+    {:ok, trackerPid} = SalesTracker.start
     send(self, :produce)
     send(self, :bid)
-    {:noreply, state}
+    {:noreply, %{state | tracker_pid: trackerPid, price_beliefs: priceBeliefs}}
   end
 
   def handle_info({:won, productId, amount, ppu}, state) do
@@ -54,7 +77,8 @@ defmodule Bot do
     {:noreply, %{state | :money => state.money - paid, :inventory => newInventory}}
   end
 
-  def handle_info({:sold, productId, amount, ppu}, state) do
+  def handle_info({:sold, askId, productId, amount, ppu}, state) do
+    SalesTracker.reg_sale(state.tracker_pid, askId, amount)
     newAmount = state.created[productId] - amount
     newCreated = %{state.created | productId => newAmount}
     {:noreply, %{state | :money => state.money + amount * ppu, :created => newCreated}}
@@ -99,7 +123,13 @@ defmodule Bot do
   def place_food_bids([ask | rest], labourNeeded, money, marketPid)
       when labourNeeded > 0 and money > 0 do
     foodValue = Map.get(Application.get_env(:eco, :products), ask.product_id)[:food_value]
-    max = min(ask.amount, trunc(money / ask.ppu))
+
+    # if price is 0, buy everything
+    max = if ask.ppu <= 0 do
+      ask.amount
+    else
+      min(ask.amount, trunc(money / ask.ppu))
+    end
 
     if max > 0 do
       spend = max * ask.ppu
@@ -121,9 +151,16 @@ defmodule Bot do
     |> Enum.each(fn
       {_, 0} ->
         :ok
-
       {prodId, amount} ->
-        TurnMarket.ask(marketPid, prodId, amount, :rand.uniform() * 10)
+        meanPrice = case Map.fetch(state.price_beliefs, prodId) do
+          :error ->
+            :rand.uniform() * 10
+          {:ok, nil} ->
+            :rand.uniform() * 10
+          {:ok, value} ->
+            ActorUtils.normal_random_above_zero(value, 1)
+        end
+        ActorUtils.spread_ask(marketPid, prodId, amount, meanPrice, 10, state)
     end)
   end
 
@@ -151,5 +188,9 @@ defmodule Bot do
       start: {Bot, :start_link, []},
       restart: :permanent
     }
+  end
+
+  def terminate(_, _) do
+    :ok
   end
 end
