@@ -2,8 +2,8 @@ defmodule ActorUtils do
   def can_create(product, state) do
     case product.raw do
       true ->
-        :math.floor(state.labour / product.labour_cost)
-
+        productivity = state.prods[product.name]
+        :math.floor(productivity * (state.labour / product.labour_cost))
       false ->
         0.0
     end
@@ -13,8 +13,8 @@ defmodule ActorUtils do
     product = Application.get_env(:eco, :products)[productId]
 
     if product.raw do
-      creating = min(amount, :math.floor(state.labour / product.labour_cost))
-      labour_cost = creating * product.labour_cost
+      creating = min(amount, can_create(product, state))
+      labour_cost = (creating / state.prods[product.name]) * product.labour_cost
       newAmount = creating + Map.get(state.created, productId, 0)
 
       %{
@@ -44,7 +44,7 @@ defmodule ActorUtils do
   def spread_ask(marketPid, prodId, amount, meanPrice, bucketSize, state) do
     generate_bucket_list(amount, bucketSize)
     |> Enum.each(fn(bucket) -> 
-      ppu = :rstats.rnormal(meanPrice, 10)
+      ppu = normal_random_above_zero(meanPrice, 10)
       askId = TurnMarket.ask(marketPid, prodId, bucket, ppu)
       SalesTracker.reg_ask(state.tracker_pid, askId, ppu, bucket, prodId)
     end)

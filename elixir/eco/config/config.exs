@@ -36,6 +36,7 @@ config(:eco, [
   {:products,
    %{
      "chicken" => %{
+       :name => "chicken",
        :labour_cost => 4,
        :class => :food,
        :raw => false,
@@ -45,32 +46,38 @@ config(:eco, [
        }
      },
      "calories" => %{
+       :name => "calories",
        :labour_cost => 1,
        :class => :food,
        :raw => true,
        :food_value => 1
      },
      "coffee" => %{
+       :name => "coffee",
        :labour_cost => 5,
        :class => :base,
        :raw => true
      },
      "1" => %{
+       :name => "1",
        :labour_cost => 15,
        :class => :base,
        :raw => true
      },
      "2" => %{
+       :name => "2",
        :labour_cost => 13,
        :class => :base,
        :raw => true
      },
      "3" => %{
+       :name => "3",
        :labour_cost => 11,
        :class => :base,
        :raw => true
      },
      "4" => %{
+       :name => "4",
        :labour_cost => 16,
        :class => :comodity,
        :raw => false,
@@ -80,6 +87,7 @@ config(:eco, [
        }
      },
      "5" => %{
+       :name => "5",
        :labour_cost => 20,
        :class => :comodity,
        :raw => false,
@@ -89,6 +97,7 @@ config(:eco, [
        }
      },
      "6" => %{
+       :name => "6",
        :labour_cost => 19,
        :class => :comodity,
        :raw => false,

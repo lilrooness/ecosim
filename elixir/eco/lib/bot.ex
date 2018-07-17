@@ -2,8 +2,8 @@ defmodule Bot do
   @behaviour GenServer
 
   defstruct(
-    prefs: [],
-    prods: [],
+    prefs: %{},
+    prods: %{},
     money: 0,
     price_beliefs: %{},
     inventory: %{},
@@ -158,7 +158,7 @@ defmodule Bot do
           {:ok, nil} ->
             :rand.uniform() * 10
           {:ok, value} ->
-            ActorUtils.normal_random_above_zero(value, 1)
+            value
         end
         ActorUtils.spread_ask(marketPid, prodId, amount, meanPrice, 10, state)
     end)
